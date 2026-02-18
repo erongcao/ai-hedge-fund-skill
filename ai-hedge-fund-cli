@@ -1,0 +1,155 @@
+#!/bin/bash
+# AI Hedge Fund - Unified CLI
+# Usage: ai-hedge-fund <command> [options]
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+show_help() {
+    cat << 'EOF'
+🦞 AI Hedge Fund - Unified Command Line Interface
+
+USAGE:
+    ai-hedge-fund <command> [options]
+
+COMMANDS:
+
+1. ANALYZE - Stock Analysis
+    ai-hedge-fund analyze <ticker> [--detailed] [--json]
+    
+    Examples:
+        ai-hedge-fund analyze AAPL
+        ai-hedge-fund analyze AAPL,MSFT,GOOGL --detailed
+        ai-hedge-fund analyze TSLA --json
+
+2. PORTFOLIO - Portfolio Construction
+    ai-hedge-fund portfolio <tickers> [--risk conservative|moderate|aggressive]
+    
+    Examples:
+        ai-hedge-fund portfolio AAPL,MSFT,GOOGL,JPM,JNJ --risk moderate
+        ai-hedge-fund portfolio AAPL:0.3,MSFT:0.2,GOOGL:0.5 --existing
+
+3. BACKTEST - Strategy Backtesting
+    ai-hedge-fund backtest <tickers> --start <date> --end <date>
+    
+    Examples:
+        ai-hedge-fund backtest AAPL,MSFT --start 2023-01-01 --end 2024-01-01
+        ai-hedge-fund backtest AAPL,MSFT,GOOGL --start 2023-01-01 --end 2024-01-01 --strategy momentum
+
+4. REBALANCE - Portfolio Rebalancing Monitor
+    ai-hedge-fund rebalance <holdings> [--last-rebalanced <date>]
+    
+    Examples:
+        ai-hedge-fund rebalance AAPL:0.3,MSFT:0.2,GOOGL:0.5
+        ai-hedge-fund rebalance AAPL,MSFT,GOOGL --last-rebalanced 2024-01-01
+
+5. TAX - Tax Optimization
+    ai-hedge-fund tax --lots <json_or_file> [--year-end]
+    
+    Examples:
+        ai-hedge-fund tax --lots '[{"ticker":"AAPL","shares":100,"purchase_date":"2024-01-01","purchase_price":150}]'
+        ai-hedge-fund tax --lots lots.json --year-end --target-gains 10000
+
+6. ESG - ESG Screening
+    ai-hedge-fund esg <tickers> [--portfolio] [--minimum-score <score>]
+    
+    Examples:
+        ai-hedge-fund esg AAPL,MSFT,XOM,TSLA
+        ai-hedge-fund esg AAPL,MSFT,GOOGL --portfolio --minimum-score 6.0
+
+7. GLOBAL - Global Markets
+    ai-hedge-fund global <subcommand>
+    
+    Subcommands:
+        list-markets              List all supported markets
+        analyze --ticker <t>      Analyze a global stock
+        market --market <code>    Get market summary
+        convert --amount <n> --from-currency <c>
+    
+    Examples:
+        ai-hedge-fund global list-markets
+        ai-hedge-fund global analyze --ticker 0700.HK
+        ai-hedge-fund global market --market HK
+        ai-hedge-fund global convert --amount 10000 --from-currency CNY
+
+8. ADVANCED - AI-Powered Analysis (uses sub-agents)
+    ai-hedge-fund advanced <ticker> [--detailed] [--json]
+    
+    Examples:
+        ai-hedge-fund advanced AAPL --detailed
+
+OPTIONS:
+    -h, --help              Show this help message
+    --json, -j              Output results as JSON
+    --detailed, -d          Show detailed analysis
+    --risk <level>          Risk level: conservative, moderate, aggressive
+
+MARKET SUFFIXES:
+    US Stocks:      AAPL, MSFT, TSLA (no suffix)
+    Hong Kong:      0700.HK, 9988.HK
+    China A-Shares: 600519.SS, 000858.SZ
+    Japan:          7203.T, 9984.T
+    UK:             SHEL.L, ULVR.L
+    Germany:        SAP.DE, VOW.DE
+    India:          RELIANCE.NS, TCS.NS
+
+ENVIRONMENT VARIABLES:
+    ALPHA_VANTAGE_API_KEY       API key for Alpha Vantage
+    FINANCIAL_DATASETS_API_KEY  API key for Financial Datasets
+
+For more information: https://github.com/openclaw/openclaw
+EOF
+}
+
+# Main command dispatch
+case "${1:-}" in
+    analyze|a)
+        shift
+        python3 "${SCRIPT_DIR}/ai_hedge_fund.py" "$@"
+        ;;
+    
+    portfolio|p|build)
+        shift
+        python3 "${SCRIPT_DIR}/portfolio_constructor.py" "$@"
+        ;;
+    
+    backtest|bt)
+        shift
+        python3 "${SCRIPT_DIR}/backtester.py" "$@"
+        ;;
+    
+    rebalance|r|monitor)
+        shift
+        python3 "${SCRIPT_DIR}/rebalance_monitor.py" "$@"
+        ;;
+    
+    tax|t)
+        shift
+        python3 "${SCRIPT_DIR}/tax_optimizer.py" "$@"
+        ;;
+    
+    esg|e)
+        shift
+        python3 "${SCRIPT_DIR}/esg_screener.py" "$@"
+        ;;
+    
+    global|g)
+        shift
+        python3 "${SCRIPT_DIR}/global_markets.py" "$@"
+        ;;
+    
+    advanced|adv)
+        shift
+        python3 "${SCRIPT_DIR}/ai_hedge_fund_advanced.py" "$@"
+        ;;
+    
+    help|--help|-h)
+        show_help
+        ;;
+    
+    *)
+        echo "❌ Unknown command: ${1:-}"
+        echo ""
+        show_help
+        exit 1
+        ;;
+esac
