@@ -1,0 +1,143 @@
+#!/usr/bin/env python3
+"""
+AI Hedge Fund - Two-Tier Architecture v3.0
+Tier 1: Data Analysts (Research) → Tier 2: Investment Masters (Decision)
+"""
+
+import sys
+import json
+from two_tier_architecture import TwoTierAIHedgeFund
+
+
+def format_two_tier_output(result, detailed=False):
+    """Format two-tier analysis output"""
+    lines = []
+    
+    signal_emoji = {"bullish": "🟢", "bearish": "🔴", "neutral": "🟡"}[result['signal']]
+    
+    lines.append(f"\n{'='*75}")
+    lines.append(f"{signal_emoji} {result['ticker']} Analysis - TWO-TIER ARCHITECTURE")
+    lines.append(f"{'='*75}")
+    lines.append(f"Final Consensus: {result['signal'].upper()} ({result['confidence']}% confidence)")
+    lines.append(f"Agreement: {result['agreement']}")
+    lines.append("")
+    
+    # Tier 1: Research Report
+    report = result['research_report']
+    lines.append("📋 TIER 1: RESEARCH TEAM ANALYSIS")
+    lines.append("─" * 75)
+    lines.append(f"  📊 Analyst Sentiment: {report.overall_bullish_count} bullish, "
+                f"{report.overall_bearish_count} bearish, {report.overall_neutral_count} neutral")
+    lines.append("")
+    
+    # Research findings
+    if report.key_findings:
+        lines.append("  ✅ Key Findings:")
+        for finding in report.key_findings[:5]:
+            lines.append(f"    • {finding}")
+        lines.append("")
+    
+    # Detailed research breakdown
+    if detailed:
+        lines.append("  📈 Research Breakdown:")
+        
+        # Earnings
+        if report.eps_surprise is not None:
+            emoji = "📈" if report.eps_surprise > 0 else "📉"
+            lines.append(f"    {emoji} Earnings: {report.eps_surprise:+.1f}% surprise "
+                        f"({report.beat_rate}/4 beats) - {report.earnings_signal}")
+        
+        # Wall Street
+        if report.num_analysts > 0:
+            lines.append(f"    🎯 Wall Street: {report.num_analysts} analysts, "
+                        f"{report.consensus_rating}, +{report.upside_potential:.1f}% upside")
+        
+        # Financial Health
+        lines.append(f"    💰 Financial Health: {report.health_score}/100 "
+                    f"(Margin: {report.operating_margin:.1f}%, D/E: {report.debt_to_equity:.2f}x)")
+        
+        # Macro
+        lines.append(f"    🌍 Macro: {report.market_regime.upper()} regime, VIX {report.vix_level:.1f}")
+        
+        lines.append("")
+    
+    # Major Risks from research
+    if report.major_risks:
+        lines.append("  ⚠️  Major Risks Identified by Research Team:")
+        for risk in report.major_risks[:5]:
+            lines.append(f"    • {risk}")
+        lines.append("")
+    
+    lines.append("─" * 75)
+    
+    # Tier 2: Investment Masters
+    lines.append("🎯 TIER 2: INVESTMENT MASTERS DECISION")
+    lines.append("─" * 75)
+    lines.append("  Each master reviewed the research report and made their decision:")
+    lines.append("")
+    
+    for signal in result['master_signals']:
+        emoji = {"bullish": "📈", "bearish": "📉", "neutral": "➡️"}[signal.signal]
+        lines.append(f"  {emoji} {signal.agent_name}")
+        lines.append(f"     Signal: {signal.signal.upper()} ({signal.confidence}% confidence)")
+        if detailed:
+            lines.append(f"     Reasoning: {signal.reasoning}")
+        lines.append("")
+    
+    # Final recommendation
+    lines.append("─" * 75)
+    lines.append("💡 FINAL RECOMMENDATION")
+    lines.append("─" * 75)
+    lines.append(f"  {result['recommendation']}")
+    lines.append(f"{'='*75}\n")
+    
+    return "\n".join(lines)
+
+
+def main():
+    import argparse
+    
+    parser = argparse.ArgumentParser(description="AI Hedge Fund - Two-Tier Architecture")
+    parser.add_argument("ticker", help="Stock ticker symbol")
+    parser.add_argument("--detailed", "-d", action="store_true", help="Show detailed reasoning")
+    parser.add_argument("--json", "-j", action="store_true", help="Output as JSON")
+    
+    args = parser.parse_args()
+    
+    # Initialize two-tier fund
+    fund = TwoTierAIHedgeFund()
+    
+    # Run analysis
+    result = fund.analyze(args.ticker.upper(), detailed=args.detailed)
+    
+    if args.json:
+        # Convert to serializable dict
+        output = {
+            "ticker": result['ticker'],
+            "signal": result['signal'],
+            "confidence": result['confidence'],
+            "agreement": result['agreement'],
+            "recommendation": result['recommendation'],
+            "research_summary": {
+                "bullish_signals": result['research_report'].overall_bullish_count,
+                "bearish_signals": result['research_report'].overall_bearish_count,
+                "key_findings": result['research_report'].key_findings,
+                "major_risks": result['research_report'].major_risks
+            },
+            "master_decisions": [
+                {
+                    "master": s.agent_name,
+                    "signal": s.signal,
+                    "confidence": s.confidence,
+                    "reasoning": s.reasoning
+                }
+                for s in result['master_signals']
+            ]
+        }
+        print(json.dumps(output, indent=2))
+    else:
+        print(format_two_tier_output(result, detailed=args.detailed))
+
+
+if __name__ == "__main__":
+    main()
