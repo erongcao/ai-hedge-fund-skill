@@ -59,6 +59,12 @@ def format_two_tier_output(result, detailed=False):
         # Macro
         lines.append(f"    🌍 Macro: {report.market_regime.upper()} regime, VIX {report.vix_level:.1f}")
         
+        # News & External Factors (NEW)
+        lines.append(f"    📰 News Sentiment: {report.news_sentiment.upper()} - {report.news_signal}")
+        lines.append(f"       Political Risk: {report.political_risk.upper()}")
+        lines.append(f"       Geopolitical: {report.geopolitical_exposure.upper()}")
+        lines.append(f"       Tech Disruption: {report.tech_disruption_risk.upper()}")
+        
         lines.append("")
     
     # Major Risks from research
@@ -67,6 +73,11 @@ def format_two_tier_output(result, detailed=False):
         for risk in report.major_risks[:5]:
             lines.append(f"    • {risk}")
         lines.append("")
+    
+    # News Analysis Report Display (NEW)
+    if report.news_analysis_report:
+        from news_analyst import format_news_report
+        lines.append(format_news_report(report.news_analysis_report))
     
     lines.append("─" * 75)
     

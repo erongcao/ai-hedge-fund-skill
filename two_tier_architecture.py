@@ -13,6 +13,7 @@ from enhanced_agents import (
     EarningsAgent, AnalystConsensusAgent, MacroAgent, 
     DividendAgent, FinancialHealthAgent
 )
+from news_analyst import NewsAnalyst, NewsAnalysisReport, format_news_report
 
 
 @dataclass
@@ -57,6 +58,19 @@ class AnalystReport:
     free_cash_flow: Optional[float] = None
     health_summary: str = ""
     
+    # News & External Factors Analysis (NEW)
+    news_signal: str = "neutral"
+    news_confidence: int = 50
+    news_sentiment: str = "neutral"
+    political_risk: str = "low"
+    geopolitical_exposure: str = "low"
+    tech_disruption_risk: str = "low"
+    news_summary: str = ""
+    external_factors_count: int = 0
+    key_news_risks: List[str] = field(default_factory=list)
+    key_news_opportunities: List[str] = field(default_factory=list)
+    news_analysis_report: Optional[NewsAnalysisReport] = None
+    
     # Overall Research Summary
     overall_bullish_count: int = 0
     overall_bearish_count: int = 0
@@ -66,7 +80,7 @@ class AnalystReport:
 
 
 class DataAnalystTeam:
-    """Tier 1: Research Team - 5 Enhanced Analysts"""
+    """Tier 1: Research Team - 6 Enhanced Analysts (including News)"""
     
     def __init__(self):
         self.analysts = {
@@ -74,7 +88,8 @@ class DataAnalystTeam:
             'wall_street': AnalystConsensusAgent(),
             'macro': MacroAgent(),
             'dividend': DividendAgent(),
-            'financial_health': FinancialHealthAgent()
+            'financial_health': FinancialHealthAgent(),
+            'news': NewsAnalyst()  # NEW: News & External Factors Analyst
         }
     
     def generate_research_report(self, data: EnhancedStockData) -> AnalystReport:
@@ -87,6 +102,7 @@ class DataAnalystTeam:
         macro_signal = self.analysts['macro'].analyze_enhanced(data)
         dividend_signal = self.analysts['dividend'].analyze_enhanced(data)
         health_signal = self.analysts['financial_health'].analyze_enhanced(data)
+        news_signal = self.analysts['news'].analyze_enhanced(data)
         
         # Compile Earnings Analysis
         report.earnings_signal = earnings_signal.signal
@@ -127,9 +143,26 @@ class DataAnalystTeam:
         report.free_cash_flow = data.financials.free_cash_flow
         report.health_summary = health_signal.reasoning
         
-        # Calculate overall sentiment
+        # Compile News & External Factors Analysis (NEW)
+        report.news_signal = news_signal.signal
+        report.news_confidence = news_signal.confidence
+        if news_signal.key_metrics:
+            report.news_sentiment = news_signal.key_metrics.get('sentiment', 'neutral')
+            report.political_risk = news_signal.key_metrics.get('political_risk', 'low')
+            report.geopolitical_exposure = news_signal.key_metrics.get('geopolitical_exposure', 'low')
+            report.tech_disruption_risk = news_signal.key_metrics.get('tech_risk', 'low')
+            report.external_factors_count = news_signal.key_metrics.get('external_factors', 0)
+        report.news_summary = news_signal.reasoning
+        
+        # Generate full news analysis report
+        report.news_analysis_report = self.analysts['news'].generate_news_analysis(data.ticker, data)
+        if report.news_analysis_report:
+            report.key_news_risks = report.news_analysis_report.key_risks_from_news
+            report.key_news_opportunities = report.news_analysis_report.key_opportunities
+        
+        # Calculate overall sentiment (now includes news)
         signals = [earnings_signal, wall_street_signal, macro_signal, 
-                   dividend_signal, health_signal]
+                   dividend_signal, health_signal, news_signal]
         report.overall_bullish_count = sum(1 for s in signals if s.signal == "bullish")
         report.overall_bearish_count = sum(1 for s in signals if s.signal == "bearish")
         report.overall_neutral_count = sum(1 for s in signals if s.signal == "neutral")
@@ -242,6 +275,18 @@ class WarrenBuffettWithResearch(InvestmentAgent):
         if report.market_regime == "bear" and report.vix_level and report.vix_level > 30:
             score += 10  # Opportunities in fear
             reasoning_parts.append("Market fear may create opportunity")
+        
+        # Consider News & External Factors (NEW)
+        if report.news_signal == "bearish":
+            if report.political_risk == "high":
+                score -= 15
+                reasoning_parts.append("High political/regulatory risk from news")
+            elif report.geopolitical_exposure == "high":
+                score -= 10
+                reasoning_parts.append("Geopolitical concerns")
+        elif report.news_signal == "bullish":
+            score += 5
+            reasoning_parts.append("Positive news sentiment")
         
         # Clamp and determine signal
         score = max(10, min(95, score))
@@ -465,6 +510,24 @@ class RiskManagerWithResearch(InvestmentAgent):
             score -= 10
             risks.append("Bear market environment")
         
+        # News & External Risk (NEW)
+        if report.news_signal == "bearish":
+            score -= 15
+            if report.key_news_risks:
+                risks.extend(report.key_news_risks[:2])
+        
+        if report.political_risk == "high":
+            score -= 15
+            risks.append("High political/regulatory risk")
+        
+        if report.geopolitical_exposure == "high":
+            score -= 10
+            risks.append("Geopolitical exposure risk")
+        
+        if report.tech_disruption_risk == "high":
+            score -= 10
+            risks.append("Technology disruption threat")
+        
         score = max(10, min(95, score))
         
         if score >= 65:
@@ -548,6 +611,20 @@ class CathieWoodWithResearch(InvestmentAgent):
         if report.wall_street_signal == "bullish":
             score += 10
             reasoning_parts.append("Institutional support")
+        
+        # News & Tech Disruption (NEW) - Critical for Cathie Wood
+        if report.tech_disruption_risk == "high":
+            # High tech disruption can be good (disruptor) or bad (disrupted)
+            if data.sector in ['Technology', 'Communications']:
+                score += 10
+                reasoning_parts.append("Tech disruption opportunity")
+            else:
+                score -= 15
+                reasoning_parts.append("Risk of being disrupted")
+        
+        if report.news_signal == "bullish" and report.key_news_opportunities:
+            score += 10
+            reasoning_parts.append("News indicates innovation opportunities")
         
         score = max(10, min(95, score))
         
