@@ -136,6 +136,7 @@ class EnhancedStockData:
     operating_margin: Optional[float] = None
     current_ratio: Optional[float] = None
     sector: str = ""
+    industry: str = ""  # NEW: for industry-specific analysis
     market_cap: Optional[float] = None
     
     # Enhanced data
@@ -177,6 +178,7 @@ class EnhancedDataFetcher:
             data.operating_margin = info.get('operatingMargins')
             data.current_ratio = info.get('currentRatio')
             data.sector = info.get('sector', '')
+            data.industry = info.get('industry', '')  # NEW: capture industry
             data.market_cap = info.get('marketCap')
             
             # Fetch enhanced modules

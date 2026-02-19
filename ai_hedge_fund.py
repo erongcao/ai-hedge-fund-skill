@@ -62,15 +62,40 @@ class WarrenBuffettAgent(InvestmentAgent):
         else:
             reasoning_parts.append("Weak or missing ROE")
         
-        # Debt levels
+        # Debt levels (with industry context)
         debt = data.get("debt_to_equity", 0)
-        if debt and debt < 0.5:
-            score += 15
-            reasoning_parts.append("Conservative debt levels")
-        elif debt and debt < 1.0:
-            score += 5
-        else:
-            reasoning_parts.append("High debt levels")
+        sector = data.get("sector", "")
+        industry = data.get("industry", "")
+        
+        try:
+            from industry_rules import evaluate_leverage_in_context
+            leverage_eval = evaluate_leverage_in_context(debt, sector, industry)
+            
+            if leverage_eval.get('is_concerning'):
+                score -= 15
+                reasoning_parts.append(f"Excessive leverage for {leverage_eval.get('context', 'sector')}")
+                risks.append(f"High debt burden (D/E {debt:.2f}x)")
+            elif leverage_eval.get('note'):
+                # High leverage but normal for this industry
+                score += 5
+                reasoning_parts.append(f"Strategic leverage for {leverage_eval.get('context', 'industry')}")
+            elif debt and debt < 0.5:
+                score += 15
+                reasoning_parts.append("Conservative debt levels")
+            elif debt and debt < 1.0:
+                score += 5
+            else:
+                reasoning_parts.append("High debt levels")
+                risks.append(f"Elevated debt (D/E {debt:.2f}x)")
+        except ImportError:
+            # Fallback to standard evaluation
+            if debt and debt < 0.5:
+                score += 15
+                reasoning_parts.append("Conservative debt levels")
+            elif debt and debt < 1.0:
+                score += 5
+            else:
+                reasoning_parts.append("High debt levels")
         
         # Operating margin
         margin = data.get("operating_margin", 0)
@@ -298,10 +323,22 @@ class RiskManager(InvestmentAgent):
             score -= 10
             risks.append("Elevated valuation")
         
-        # Sector concentration (mock check)
+        # Sector concentration and industry-specific risk
         sector = data.get("sector", "")
-        if sector in ["Technology", "Biotechnology"]:
-            risks.append(f"Volatile sector: {sector}")
+        industry = data.get("industry", "")
+        
+        # Use industry rules for sector risk evaluation
+        try:
+            from industry_rules import get_industry_profile
+            profile = get_industry_profile(sector, industry)
+            if profile and profile.leverage_is_good:
+                # For industries where leverage is normal, don't warn about it
+                pass
+            elif sector in ["Technology", "Biotechnology"]:
+                risks.append(f"Volatile sector: {sector}")
+        except ImportError:
+            if sector in ["Technology", "Biotechnology"]:
+                risks.append(f"Volatile sector: {sector}")
         
         if score >= 60:
             signal = "bullish"
@@ -418,6 +455,7 @@ class EnhancedAIHedgeFund:
             "operating_margin": enhanced_data.operating_margin,
             "current_ratio": enhanced_data.current_ratio,
             "sector": enhanced_data.sector,
+            "industry": enhanced_data.industry,  # NEW: for industry analysis
             "market_cap": enhanced_data.market_cap,
             "avg_50": enhanced_data.avg_50,
             "avg_200": enhanced_data.avg_200,
