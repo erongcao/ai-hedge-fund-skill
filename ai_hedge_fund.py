@@ -660,11 +660,42 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
             if financials.get("return_on_assets") is not None and (not financials.get("return_on_equity") or financials['return_on_equity'] / financials['return_on_assets'] <= 5):
                 lines.append(f"      • ROA: {financials['return_on_assets']:.1f}%")
             
-            # Debt & Leverage
+            # Debt & Leverage (with industry context)
             lines.append("    ⚖️  Debt & Leverage:")
             if financials.get("debt_to_equity") is not None:
-                debt_emoji = "✅" if financials['debt_to_equity'] < 0.5 else "⚠️" if financials['debt_to_equity'] < 1.0 else "❌"
-                lines.append(f"      {debt_emoji} Debt/Equity: {financials['debt_to_equity']:.2f}x")
+                de = financials['debt_to_equity']
+                sector = result.enhanced_data.get('sector', '')
+                industry = result.enhanced_data.get('industry', '')
+                
+                # Use industry rules for emoji
+                try:
+                    from industry_rules import evaluate_leverage_in_context
+                    leverage_eval = evaluate_leverage_in_context(de, sector, industry)
+                    
+                    if leverage_eval.get('is_concerning'):
+                        debt_emoji = "❌"
+                        debt_note = " (过高)"
+                    elif leverage_eval.get('note'):
+                        debt_emoji = "✅"  # Normal for this industry
+                        debt_note = f" ({leverage_eval.get('context', '该行业')}正常)"
+                    elif de < 0.5:
+                        debt_emoji = "✅"
+                        debt_note = ""
+                    elif de < 1.0:
+                        debt_emoji = "⚠️"
+                        debt_note = ""
+                    else:
+                        debt_emoji = "❌"
+                        debt_note = ""
+                    
+                    lines.append(f"      {debt_emoji} Debt/Equity: {de:.2f}x{debt_note}")
+                    
+                    if leverage_eval.get('note'):
+                        lines.append(f"        ℹ️  {leverage_eval.get('note', '')}")
+                except ImportError:
+                    debt_emoji = "✅" if de < 0.5 else "⚠️" if de < 1.0 else "❌"
+                    lines.append(f"      {debt_emoji} Debt/Equity: {de:.2f}x")
+            
             if financials.get("current_ratio") is not None:
                 lines.append(f"      • Current Ratio: {financials['current_ratio']:.2f}")
             if financials.get("net_debt") is not None:
@@ -760,10 +791,34 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
             lines.append(f"  {emoji} {signal.agent_name}: {signal.signal} ({signal.confidence}%)")
         lines.append("")
     
-    # Risks
+    # Risks (with industry context filtering)
     lines.append("⚠️  Key Risks:")
+    
+    # Check if this is a leverage-friendly industry
+    is_leverage_friendly = False
+    leverage_friendly_note = ""
+    try:
+        from industry_rules import get_industry_profile
+        profile = get_industry_profile(result.enhanced_data.get('sector', ''), result.enhanced_data.get('industry', ''))
+        if profile and profile.leverage_is_good:
+            is_leverage_friendly = True
+            leverage_friendly_note = f"Note: High leverage is normal for {profile.name}"
+    except:
+        pass
+    
+    filtered_risks = []
     for risk in result.key_risks:
+        # Filter out leverage warnings for leverage-friendly industries
+        if is_leverage_friendly and ('leverage' in risk.lower() or 'debt' in risk.lower()):
+            continue
+        filtered_risks.append(risk)
+    
+    for risk in filtered_risks:
         lines.append(f"  • {risk}")
+    
+    if is_leverage_friendly and leverage_friendly_note:
+        lines.append(f"  ℹ️  {leverage_friendly_note}")
+    
     lines.append("")
     
     # Recommendation
