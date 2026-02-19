@@ -611,7 +611,16 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
             if financials.get("gross_margin") is not None:
                 lines.append(f"      • Gross Margin: {financials['gross_margin']:.1f}%")
             if financials.get("return_on_equity") is not None:
-                lines.append(f"      • ROE: {financials['return_on_equity']:.1f}% (TTM)")
+                roe = financials['return_on_equity']
+                roa = financials.get('return_on_assets')
+                if roa and roa > 0 and roe / roa > 5:
+                    lines.append(f"      🔴 ROE: {roe:.1f}% (TTM) - 高杠杆驱动，非经营质量！")
+                    lines.append(f"      ⚠️  ROA: {roa:.1f}% - 真实盈利能力一般")
+                    lines.append(f"      📊 杠杆倍数: {roe/roa:.1f}x (危险高)")
+                else:
+                    lines.append(f"      • ROE: {roe:.1f}% (TTM)")
+            if financials.get("return_on_assets") is not None and (not financials.get("return_on_equity") or financials['return_on_equity'] / financials['return_on_assets'] <= 5):
+                lines.append(f"      • ROA: {financials['return_on_assets']:.1f}%")
             
             # Debt & Leverage
             lines.append("    ⚖️  Debt & Leverage:")
@@ -657,6 +666,17 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
         lines.append("    • ROE、FCF、利润率均为TTM数据(过去12个月)")
         lines.append("    • TTM数据可能跨越不同财年和季度")
         lines.append("    • 如需特定年度数据，请参考公司年报")
+        
+        # ROE Quality Warning
+        if financials and financials.get('return_on_equity') and financials.get('return_on_assets'):
+            roe = financials['return_on_equity']
+            roa = financials['return_on_assets']
+            if roa > 0 and roe / roa > 5:
+                lines.append("")
+                lines.append("  🚨 重要警告 - ROE质量:")
+                lines.append(f"    • ROE ({roe:.1f}%) 是 ROA ({roa:.1f}%) 的 {roe/roa:.1f} 倍")
+                lines.append("    • 说明高ROE主要由债务杠杆驱动")
+                lines.append("    • 这是风险信号，非经营优势！")
         lines.append("")
     
     # Agent details

@@ -371,17 +371,36 @@ class FinancialHealthAgent(InvestmentAgent):
                 score -= 10
                 risks.append("Low gross margin")
         
-        # ROE Analysis
+        # ROE Analysis (with leverage quality check)
         if fin.return_on_equity is not None:
-            if fin.return_on_equity > 20:
+            roe = fin.return_on_equity
+            roa = fin.return_on_assets if hasattr(fin, 'return_on_assets') else None
+            
+            # Check if ROE is leverage-driven
+            is_leverage_driven = False
+            if roa and roa > 0 and roe / roa > 5:
+                is_leverage_driven = True
+            if fin.debt_to_equity and fin.debt_to_equity > 2.0 and roe > 30:
+                is_leverage_driven = True
+            
+            if is_leverage_driven:
+                # High ROE from leverage is RISKY, not good
+                if roa and roa > 0:
+                    score -= 10
+                    reasoning_parts.append(f"ROE {roe:.1f}% is leverage-driven (ROA only {roa:.1f}%) - risky!")
+                    risks.append(f"High ROE ({roe:.1f}%) driven by debt, not quality")
+                else:
+                    score -= 5
+                    reasoning_parts.append(f"High ROE {roe:.1f}% with high debt - quality questionable")
+            elif roe > 20:
                 score += 15
-                reasoning_parts.append(f"Excellent ROE: {fin.return_on_equity:.1f}%")
-            elif fin.return_on_equity > 12:
+                reasoning_parts.append(f"Excellent ROE: {roe:.1f}% (quality-driven)")
+            elif roe > 12:
                 score += 10
-                reasoning_parts.append(f"Good ROE: {fin.return_on_equity:.1f}%")
-            elif fin.return_on_equity < 5:
+                reasoning_parts.append(f"Good ROE: {roe:.1f}%")
+            elif roe < 5:
                 score -= 10
-                reasoning_parts.append(f"Weak ROE: {fin.return_on_equity:.1f}%")
+                reasoning_parts.append(f"Weak ROE: {roe:.1f}%")
                 risks.append("Poor ROE")
         
         # Debt Analysis

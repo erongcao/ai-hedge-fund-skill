@@ -459,6 +459,12 @@ class EnhancedDataFetcher:
             financials.return_on_assets = info.get('returnOnAssets', 0) * 100 if info.get('returnOnAssets') else None
             financials.asset_turnover = info.get('assetTurnover')
             
+            # Check for leverage-driven ROE and add warning
+            if financials.return_on_equity and financials.return_on_assets and financials.return_on_assets > 0:
+                leverage_ratio = financials.return_on_equity / financials.return_on_assets
+                if leverage_ratio > 5:
+                    financials.health_explanation += f"; Warning: ROE is {leverage_ratio:.1f}x ROA (leverage-driven)"
+            
             # Valuation extras
             financials.forward_pe = info.get('forwardPE')
             financials.peg_ratio = info.get('pegRatio')
