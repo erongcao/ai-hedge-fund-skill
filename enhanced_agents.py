@@ -341,6 +341,16 @@ class FinancialHealthAgent(InvestmentAgent):
         )
     
     def analyze_enhanced(self, data: EnhancedStockData) -> AgentSignal:
+        # Import industry rules
+        try:
+            from industry_rules import (
+                evaluate_leverage_in_context, 
+                evaluate_roe_in_context,
+                format_industry_context
+            )
+            use_industry_rules = True
+        except ImportError:
+            use_industry_rules = False
         score = 50
         reasoning_parts = []
         risks = []
@@ -371,54 +381,94 @@ class FinancialHealthAgent(InvestmentAgent):
                 score -= 10
                 risks.append("Low gross margin")
         
-        # ROE Analysis (with leverage quality check)
+        # ROE Analysis (with industry context)
         if fin.return_on_equity is not None:
             roe = fin.return_on_equity
             roa = fin.return_on_assets if hasattr(fin, 'return_on_assets') else None
             
-            # Check if ROE is leverage-driven
-            is_leverage_driven = False
-            if roa and roa > 0 and roe / roa > 5:
-                is_leverage_driven = True
-            if fin.debt_to_equity and fin.debt_to_equity > 2.0 and roe > 30:
-                is_leverage_driven = True
-            
-            if is_leverage_driven:
-                # High ROE from leverage is RISKY, not good
-                if roa and roa > 0:
-                    score -= 10
-                    reasoning_parts.append(f"ROE {roe:.1f}% is leverage-driven (ROA only {roa:.1f}%) - risky!")
-                    risks.append(f"High ROE ({roe:.1f}%) driven by debt, not quality")
+            # Use industry-specific evaluation if available
+            if use_industry_rules:
+                roe_eval = evaluate_roe_in_context(roe, roa, fin.debt_to_equity or 0, 
+                                                   data.sector, "")
+                
+                if roe_eval.get('context_note'):
+                    # Industry where leverage is normal (Defense, Utilities, etc.)
+                    if roe > 50:
+                        score += 10  # Reward high ROE in leverage-friendly industries
+                        reasoning_parts.append(f"ROE {roe:.1f}% is appropriate for {roe_eval.get('context', 'this industry')}")
+                        reasoning_parts.append(f"  Note: {roe_eval.get('context_note', '')}")
+                    elif roe < 20:
+                        score -= 5
+                        reasoning_parts.append(f"ROE {roe:.1f}% is low for {roe_eval.get('context', 'this industry')}")
                 else:
-                    score -= 5
-                    reasoning_parts.append(f"High ROE {roe:.1f}% with high debt - quality questionable")
-            elif roe > 20:
-                score += 15
-                reasoning_parts.append(f"Excellent ROE: {roe:.1f}% (quality-driven)")
-            elif roe > 12:
-                score += 10
-                reasoning_parts.append(f"Good ROE: {roe:.1f}%")
-            elif roe < 5:
-                score -= 10
-                reasoning_parts.append(f"Weak ROE: {roe:.1f}%")
-                risks.append("Poor ROE")
-        
-        # Debt Analysis
-        if fin.debt_to_equity is not None:
-            if fin.debt_to_equity < 0.3:
-                score += 15
-                reasoning_parts.append(f"Low debt: D/E {fin.debt_to_equity:.2f}x")
-            elif fin.debt_to_equity < 0.8:
-                score += 5
-                reasoning_parts.append(f"Manageable debt: D/E {fin.debt_to_equity:.2f}x")
-            elif fin.debt_to_equity < 1.5:
-                score -= 10
-                reasoning_parts.append(f"Elevated debt: D/E {fin.debt_to_equity:.2f}x")
-                risks.append(f"Elevated debt level (D/E {fin.debt_to_equity:.2f}x)")
+                    # Standard evaluation
+                    is_leverage_driven = roe_eval.get('is_leverage_driven', False)
+                    if is_leverage_driven:
+                        if roa and roa > 0:
+                            score -= 10
+                            reasoning_parts.append(f"ROE {roe:.1f}% is leverage-driven (ROA {roa:.1f}%) - risky!")
+                            risks.append(f"High ROE ({roe:.1f}%) driven by debt")
+                    elif roe > 20:
+                        score += 15
+                        reasoning_parts.append(f"Excellent ROE: {roe:.1f}%")
+                    elif roe > 12:
+                        score += 10
+                        reasoning_parts.append(f"Good ROE: {roe:.1f}%")
             else:
-                score -= 20
-                reasoning_parts.append(f"High debt: D/E {fin.debt_to_equity:.2f}x!")
-                risks.append(f"High debt burden (D/E {fin.debt_to_equity:.2f}x)")
+                # Standard evaluation without industry context
+                if roa and roa > 0 and roe / roa > 5:
+                    score -= 10
+                    reasoning_parts.append(f"ROE {roe:.1f}% is leverage-driven (ROA {roa:.1f}%)")
+                    risks.append(f"High ROE from leverage")
+                elif roe > 20:
+                    score += 15
+                    reasoning_parts.append(f"Excellent ROE: {roe:.1f}%")
+                elif roe > 12:
+                    score += 10
+                    reasoning_parts.append(f"Good ROE: {roe:.1f}%")
+        
+        # Debt Analysis (with industry context)
+        if fin.debt_to_equity is not None:
+            de = fin.debt_to_equity
+            
+            # Use industry-specific evaluation if available
+            if use_industry_rules:
+                leverage_eval = evaluate_leverage_in_context(de, data.sector, "")
+                
+                if leverage_eval.get('is_concerning'):
+                    # Even for this industry, this is too high
+                    score -= 15
+                    reasoning_parts.append(f"Very high debt even for {leverage_eval.get('context', 'this industry')}: D/E {de:.2f}x")
+                    risks.append(f"Excessive leverage for sector")
+                elif leverage_eval.get('note'):
+                    # High but normal for this industry
+                    score += 5  # Slight positive - using leverage strategically
+                    reasoning_parts.append(f"D/E {de:.2f}x is appropriate for {leverage_eval.get('context', 'this industry')}")
+                    reasoning_parts.append(f"  {leverage_eval.get('note', '')}")
+                elif de < 0.5:
+                    # Below industry norm - might be under-leveraged
+                    score -= 5
+                    reasoning_parts.append(f"D/E {de:.2f}x is conservative for {leverage_eval.get('context', 'standard')}")
+                else:
+                    # Standard range
+                    score += 0
+                    reasoning_parts.append(f"D/E {de:.2f}x within normal range")
+            else:
+                # Standard evaluation
+                if de < 0.3:
+                    score += 15
+                    reasoning_parts.append(f"Low debt: D/E {de:.2f}x")
+                elif de < 0.8:
+                    score += 5
+                    reasoning_parts.append(f"Manageable debt: D/E {de:.2f}x")
+                elif de < 1.5:
+                    score -= 10
+                    reasoning_parts.append(f"Elevated debt: D/E {de:.2f}x")
+                    risks.append(f"Elevated debt level (D/E {de:.2f}x)")
+                else:
+                    score -= 20
+                    reasoning_parts.append(f"High debt: D/E {de:.2f}x!")
+                    risks.append(f"High debt burden (D/E {de:.2f}x)")
         
         # Liquidity
         if fin.current_ratio is not None:

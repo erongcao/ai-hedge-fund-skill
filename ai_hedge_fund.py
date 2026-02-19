@@ -667,16 +667,43 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
         lines.append("    • TTM数据可能跨越不同财年和季度")
         lines.append("    • 如需特定年度数据，请参考公司年报")
         
-        # ROE Quality Warning
+        # Industry Context Analysis
+        try:
+            from industry_rules import format_industry_context, get_industry_profile
+            industry_text = format_industry_context(result.enhanced_data.get('sector', ''), "")
+            if industry_text:
+                lines.append(industry_text)
+        except ImportError:
+            pass
+        
+        # ROE Quality Warning (with industry context)
         if financials and financials.get('return_on_equity') and financials.get('return_on_assets'):
             roe = financials['return_on_equity']
             roa = financials['return_on_assets']
-            if roa > 0 and roe / roa > 5:
+            leverage_ratio = roe / roa if roa > 0 else 0
+            
+            # Check if this is a leverage-friendly industry
+            is_leverage_friendly = False
+            try:
+                from industry_rules import get_industry_profile
+                profile = get_industry_profile(result.enhanced_data.get('sector', ''), "")
+                if profile and profile.leverage_is_good:
+                    is_leverage_friendly = True
+            except:
+                pass
+            
+            if leverage_ratio > 5:
                 lines.append("")
-                lines.append("  🚨 重要警告 - ROE质量:")
-                lines.append(f"    • ROE ({roe:.1f}%) 是 ROA ({roa:.1f}%) 的 {roe/roa:.1f} 倍")
-                lines.append("    • 说明高ROE主要由债务杠杆驱动")
-                lines.append("    • 这是风险信号，非经营优势！")
+                if is_leverage_friendly:
+                    lines.append("  ℹ️  ROE结构分析:")
+                    lines.append(f"    • ROE ({roe:.1f}%) / ROA ({roa:.1f}%) = {leverage_ratio:.1f}x")
+                    lines.append(f"    • 对于{result.enhanced_data.get('sector', '该行业')}，这是正常的杠杆运用")
+                    lines.append("    • 高ROE来自财务杠杆，但在该行业是合理策略")
+                else:
+                    lines.append("  🚨 重要警告 - ROE质量:")
+                    lines.append(f"    • ROE ({roe:.1f}%) 是 ROA ({roa:.1f}%) 的 {leverage_ratio:.1f} 倍")
+                    lines.append("    • 说明高ROE主要由债务杠杆驱动")
+                    lines.append("    • 这是风险信号，非经营优势！")
         lines.append("")
     
     # Agent details
