@@ -329,3 +329,132 @@ class DividendAgent(InvestmentAgent):
                 "payout_ratio": dividend.payout_ratio
             }
         )
+
+
+class FinancialHealthAgent(InvestmentAgent):
+    """Analyze comprehensive financial health"""
+    
+    def __init__(self):
+        super().__init__(
+            "Financial Health Analyst",
+            "Deep dive into margins, debt, cash flow, and financial stability."
+        )
+    
+    def analyze_enhanced(self, data: EnhancedStockData) -> AgentSignal:
+        score = 50
+        reasoning_parts = []
+        risks = []
+        
+        fin = data.financials
+        
+        # Profitability Analysis
+        if fin.operating_margin is not None:
+            if fin.operating_margin > 25:
+                score += 15
+                reasoning_parts.append(f"Excellent margin: {fin.operating_margin:.1f}%")
+            elif fin.operating_margin > 15:
+                score += 10
+                reasoning_parts.append(f"Strong margin: {fin.operating_margin:.1f}%")
+            elif fin.operating_margin > 8:
+                score += 5
+                reasoning_parts.append(f"Moderate margin: {fin.operating_margin:.1f}%")
+            elif fin.operating_margin < 3:
+                score -= 15
+                reasoning_parts.append(f"Low margin: {fin.operating_margin:.1f}%")
+                risks.append("Low operating margin")
+        
+        if fin.gross_margin is not None:
+            if fin.gross_margin > 50:
+                score += 10
+                reasoning_parts.append(f"High gross margin: {fin.gross_margin:.1f}%")
+            elif fin.gross_margin < 20:
+                score -= 10
+                risks.append("Low gross margin")
+        
+        # ROE Analysis
+        if fin.return_on_equity is not None:
+            if fin.return_on_equity > 20:
+                score += 15
+                reasoning_parts.append(f"Excellent ROE: {fin.return_on_equity:.1f}%")
+            elif fin.return_on_equity > 12:
+                score += 10
+                reasoning_parts.append(f"Good ROE: {fin.return_on_equity:.1f}%")
+            elif fin.return_on_equity < 5:
+                score -= 10
+                reasoning_parts.append(f"Weak ROE: {fin.return_on_equity:.1f}%")
+                risks.append("Poor ROE")
+        
+        # Debt Analysis
+        if fin.debt_to_equity is not None:
+            if fin.debt_to_equity < 0.3:
+                score += 15
+                reasoning_parts.append(f"Low debt: D/E {fin.debt_to_equity:.2f}x")
+            elif fin.debt_to_equity < 0.8:
+                score += 5
+                reasoning_parts.append(f"Manageable debt: D/E {fin.debt_to_equity:.2f}x")
+            elif fin.debt_to_equity < 1.5:
+                score -= 10
+                reasoning_parts.append(f"Elevated debt: D/E {fin.debt_to_equity:.2f}x")
+                risks.append(f"Elevated debt level (D/E {fin.debt_to_equity:.2f}x)")
+            else:
+                score -= 20
+                reasoning_parts.append(f"High debt: D/E {fin.debt_to_equity:.2f}x!")
+                risks.append(f"High debt burden (D/E {fin.debt_to_equity:.2f}x)")
+        
+        # Liquidity
+        if fin.current_ratio is not None:
+            if fin.current_ratio > 2:
+                score += 10
+                reasoning_parts.append(f"Strong liquidity: CR {fin.current_ratio:.2f}")
+            elif fin.current_ratio < 1:
+                score -= 15
+                reasoning_parts.append(f"Weak liquidity: CR {fin.current_ratio:.2f}")
+                risks.append("Liquidity concerns")
+        
+        # Cash Flow
+        if fin.free_cash_flow is not None:
+            if fin.free_cash_flow > 1000:  # > $1B
+                score += 15
+                reasoning_parts.append(f"Strong FCF: ${fin.free_cash_flow:.0f}M")
+            elif fin.free_cash_flow > 0:
+                score += 10
+                reasoning_parts.append(f"Positive FCF: ${fin.free_cash_flow:.0f}M")
+            elif fin.free_cash_flow < -500:
+                score -= 15
+                reasoning_parts.append(f"Negative FCF: ${fin.free_cash_flow:.0f}M")
+                risks.append("Negative free cash flow")
+        
+        # Revenue Growth
+        if fin.revenue_growth_yoy is not None:
+            if fin.revenue_growth_yoy > 15:
+                score += 10
+                reasoning_parts.append(f"Strong growth: {fin.revenue_growth_yoy:.1f}%")
+            elif fin.revenue_growth_yoy < -5:
+                score -= 10
+                reasoning_parts.append(f"Declining revenue: {fin.revenue_growth_yoy:.1f}%")
+                risks.append("Revenue decline")
+        
+        # Clamp score
+        score = max(10, min(95, score))
+        
+        if score >= 65:
+            signal = "bullish"
+        elif score <= 40:
+            signal = "bearish"
+        else:
+            signal = "neutral"
+        
+        return AgentSignal(
+            agent_name=self.name,
+            signal=signal,
+            confidence=score,
+            reasoning="; ".join(reasoning_parts) if reasoning_parts else "Average financial health",
+            key_metrics={
+                "operating_margin": fin.operating_margin,
+                "debt_to_equity": fin.debt_to_equity,
+                "roe": fin.return_on_equity,
+                "fcf": fin.free_cash_flow,
+                "health_score": fin.financial_health_score,
+                "risks": risks
+            }
+        )

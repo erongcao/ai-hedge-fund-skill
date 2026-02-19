@@ -49,6 +49,47 @@ class DividendData:
 
 
 @dataclass
+class FinancialMetrics:
+    """Additional financial metrics from stock-analysis"""
+    # Profitability
+    operating_margin: Optional[float] = None
+    gross_margin: Optional[float] = None
+    profit_margin: Optional[float] = None
+    ebitda_margin: Optional[float] = None
+    
+    # Debt & Liquidity
+    debt_to_equity: Optional[float] = None
+    debt_to_assets: Optional[float] = None
+    current_ratio: Optional[float] = None
+    quick_ratio: Optional[float] = None
+    
+    # Cash Flow
+    free_cash_flow: Optional[float] = None  # in millions
+    operating_cash_flow: Optional[float] = None
+    cash: Optional[float] = None
+    
+    # Growth
+    revenue_growth_yoy: Optional[float] = None
+    earnings_growth_yoy: Optional[float] = None
+    
+    # Efficiency
+    return_on_equity: Optional[float] = None
+    return_on_assets: Optional[float] = None
+    asset_turnover: Optional[float] = None
+    
+    # Valuation extras
+    forward_pe: Optional[float] = None
+    peg_ratio: Optional[float] = None
+    price_to_sales: Optional[float] = None
+    price_to_cash_flow: Optional[float] = None
+    enterprise_value: Optional[float] = None
+    
+    # Health score
+    financial_health_score: int = 50  # 0-100
+    health_explanation: str = ""
+
+
+@dataclass
 class MacroData:
     """Macro market context"""
     vix_level: Optional[float] = None
@@ -80,6 +121,7 @@ class EnhancedStockData:
     analyst: AnalystData = field(default_factory=AnalystData)
     dividend: DividendData = field(default_factory=DividendData)
     macro: MacroData = field(default_factory=MacroData)
+    financials: FinancialMetrics = field(default_factory=FinancialMetrics)
     
     # Technical data
     avg_50: Optional[float] = None
@@ -120,6 +162,7 @@ class EnhancedDataFetcher:
             data.analyst = self._fetch_analyst_data(stock, info)
             data.dividend = self._fetch_dividend_data(stock, info)
             data.macro = self._fetch_macro_data()
+            data.financials = self._fetch_financial_metrics(stock, info)
             
             # Technical data
             hist = stock.history(period="1y")
@@ -362,3 +405,92 @@ class EnhancedDataFetcher:
             macro.explanation = "Macro data unavailable"
         
         return macro
+    
+    def _fetch_financial_metrics(self, stock: yf.Ticker, info: Dict) -> FinancialMetrics:
+        """Fetch comprehensive financial metrics"""
+        financials = FinancialMetrics()
+        
+        try:
+            # Profitability Margins
+            financials.operating_margin = info.get('operatingMargins', 0) * 100 if info.get('operatingMargins') else None
+            financials.gross_margin = info.get('grossMargins', 0) * 100 if info.get('grossMargins') else None
+            financials.profit_margin = info.get('profitMargins', 0) * 100 if info.get('profitMargins') else None
+            financials.ebitda_margin = info.get('ebitdaMargins', 0) * 100 if info.get('ebitdaMargins') else None
+            
+            # Debt & Liquidity
+            financials.debt_to_equity = info.get('debtToEquity', 0) / 100 if info.get('debtToEquity') else None
+            financials.debt_to_assets = info.get('debtToAssets', 0) if info.get('debtToAssets') else None
+            financials.current_ratio = info.get('currentRatio')
+            financials.quick_ratio = info.get('quickRatio')
+            
+            # Cash Flow (in millions)
+            financials.free_cash_flow = info.get('freeCashflow') / 1e6 if info.get('freeCashflow') else None
+            financials.operating_cash_flow = info.get('operatingCashflow') / 1e6 if info.get('operatingCashflow') else None
+            financials.cash = info.get('totalCash') / 1e6 if info.get('totalCash') else None
+            
+            # Growth
+            financials.revenue_growth_yoy = info.get('revenueGrowth', 0) * 100 if info.get('revenueGrowth') else None
+            financials.earnings_growth_yoy = info.get('earningsGrowth', 0) * 100 if info.get('earningsGrowth') else None
+            
+            # Efficiency
+            financials.return_on_equity = info.get('returnOnEquity', 0) * 100 if info.get('returnOnEquity') else None
+            financials.return_on_assets = info.get('returnOnAssets', 0) * 100 if info.get('returnOnAssets') else None
+            financials.asset_turnover = info.get('assetTurnover')
+            
+            # Valuation extras
+            financials.forward_pe = info.get('forwardPE')
+            financials.peg_ratio = info.get('pegRatio')
+            financials.price_to_sales = info.get('priceToSalesTrailing12Months')
+            financials.price_to_cash_flow = info.get('priceToCashFlow')
+            financials.enterprise_value = info.get('enterpriseValue') / 1e9 if info.get('enterpriseValue') else None  # in billions
+            
+            # Calculate financial health score
+            score = 50
+            factors = []
+            
+            # Profitability (max +20)
+            if financials.operating_margin and financials.operating_margin > 20:
+                score += 10
+                factors.append("Strong operating margin")
+            elif financials.operating_margin and financials.operating_margin < 5:
+                score -= 10
+                factors.append("Low operating margin")
+            
+            if financials.return_on_equity and financials.return_on_equity > 15:
+                score += 10
+                factors.append("High ROE")
+            elif financials.return_on_equity and financials.return_on_equity < 5:
+                score -= 10
+                factors.append("Low ROE")
+            
+            # Debt (max +/-15)
+            if financials.debt_to_equity and financials.debt_to_equity < 0.5:
+                score += 10
+                factors.append("Low debt")
+            elif financials.debt_to_equity and financials.debt_to_equity > 1.5:
+                score -= 15
+                factors.append("High debt load")
+            
+            # Liquidity (max +15)
+            if financials.current_ratio and financials.current_ratio > 2:
+                score += 10
+                factors.append("Strong liquidity")
+            elif financials.current_ratio and financials.current_ratio < 1:
+                score -= 10
+                factors.append("Weak liquidity")
+            
+            # Cash flow (max +10)
+            if financials.free_cash_flow and financials.free_cash_flow > 0:
+                score += 10
+                factors.append("Positive free cash flow")
+            elif financials.free_cash_flow and financials.free_cash_flow < 0:
+                score -= 10
+                factors.append("Negative free cash flow")
+            
+            financials.financial_health_score = max(0, min(100, score))
+            financials.health_explanation = "; ".join(factors) if factors else "Average financial health"
+            
+        except Exception as e:
+            financials.health_explanation = f"Financial data unavailable: {str(e)[:50]}"
+        
+        return financials

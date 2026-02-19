@@ -21,7 +21,7 @@ from base import AgentSignal, ConsensusResult, InvestmentAgent
 
 # Import enhanced modules
 from data_enhancement import EnhancedDataFetcher, EnhancedStockData
-from enhanced_agents import EarningsAgent, AnalystConsensusAgent, MacroAgent, DividendAgent
+from enhanced_agents import EarningsAgent, AnalystConsensusAgent, MacroAgent, DividendAgent, FinancialHealthAgent
 
 # Try to import optional dependencies
 try:
@@ -398,6 +398,7 @@ class EnhancedAIHedgeFund:
             AnalystConsensusAgent(),
             MacroAgent(),
             DividendAgent(),
+            FinancialHealthAgent(),  # NEW: Financial health analysis
         ]
     
     def analyze(self, ticker: str, detailed: bool = False) -> ConsensusResult:
@@ -507,6 +508,15 @@ class EnhancedAIHedgeFund:
                 "market_regime": enhanced_data.macro.market_regime,
                 "spy_trend_10d": enhanced_data.macro.spy_trend_10d,
             },
+            "financials": {
+                "operating_margin": enhanced_data.financials.operating_margin,
+                "gross_margin": enhanced_data.financials.gross_margin,
+                "debt_to_equity": enhanced_data.financials.debt_to_equity,
+                "return_on_equity": enhanced_data.financials.return_on_equity,
+                "free_cash_flow": enhanced_data.financials.free_cash_flow,
+                "revenue_growth_yoy": enhanced_data.financials.revenue_growth_yoy,
+                "financial_health_score": enhanced_data.financials.financial_health_score,
+            },
         }
         
         return ConsensusResult(
@@ -574,6 +584,27 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
             lines.append(f"  {emoji} VIX: {macro['vix']:.1f} ({vix_status})")
         if macro.get("market_regime"):
             lines.append(f"  📈 Market: {macro['market_regime'].upper()}")
+        
+        # Financial Metrics (NEW)
+        financials = result.enhanced_data.get("financials", {})
+        if financials:
+            lines.append("")
+            lines.append("  📈 Financial Health:")
+            if financials.get("operating_margin") is not None:
+                lines.append(f"    💵 Operating Margin: {financials['operating_margin']:.1f}%")
+            if financials.get("debt_to_equity") is not None:
+                debt_emoji = "✅" if financials['debt_to_equity'] < 0.5 else "⚠️" if financials['debt_to_equity'] < 1.0 else "❌"
+                lines.append(f"    {debt_emoji} Debt/Equity: {financials['debt_to_equity']:.2f}x")
+            if financials.get("return_on_equity") is not None:
+                lines.append(f"    📊 ROE: {financials['return_on_equity']:.1f}%")
+            if financials.get("free_cash_flow") is not None:
+                fcf = financials['free_cash_flow']
+                fcf_emoji = "✅" if fcf > 0 else "❌"
+                lines.append(f"    {fcf_emoji} Free Cash Flow: ${fcf:.0f}M")
+            if financials.get("financial_health_score"):
+                score = financials['financial_health_score']
+                score_emoji = "🟢" if score >= 70 else "🟡" if score >= 50 else "🔴"
+                lines.append(f"    {score_emoji} Health Score: {score}/100")
         
         lines.append("")
     
