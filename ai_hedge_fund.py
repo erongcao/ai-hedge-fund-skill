@@ -605,13 +605,13 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
             lines.append("")
             
             # Profitability
-            lines.append("    💰 Profitability:")
+            lines.append("    💰 Profitability (TTM - 过去12个月):")
             if financials.get("operating_margin") is not None:
                 lines.append(f"      • Operating Margin: {financials['operating_margin']:.1f}%")
             if financials.get("gross_margin") is not None:
                 lines.append(f"      • Gross Margin: {financials['gross_margin']:.1f}%")
             if financials.get("return_on_equity") is not None:
-                lines.append(f"      • ROE: {financials['return_on_equity']:.1f}%")
+                lines.append(f"      • ROE: {financials['return_on_equity']:.1f}% (TTM)")
             
             # Debt & Leverage
             lines.append("    ⚖️  Debt & Leverage:")
@@ -625,13 +625,13 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
                 lines.append(f"      • Net Debt: ${nd:,.0f}M")
             
             # Cash Flow
-            lines.append("    💵 Cash Flow:")
+            lines.append("    💵 Cash Flow (TTM - 过去12个月):")
             if financials.get("free_cash_flow") is not None:
                 fcf = financials['free_cash_flow']
                 fcf_emoji = "✅" if fcf > 0 else "❌"
-                lines.append(f"      {fcf_emoji} Free Cash Flow: ${fcf:,.0f}M")
+                lines.append(f"      {fcf_emoji} Free Cash Flow: ${fcf:,.0f}M (TTM)")
             if financials.get("cash") is not None:
-                lines.append(f"      • Cash: ${financials['cash']:,.0f}M")
+                lines.append(f"      • Cash: ${financials['cash']:,.0f}M (Latest)")
             
             # Innovation Investment
             if financials.get("rd_to_revenue") or financials.get("capex_to_revenue"):
@@ -651,6 +651,12 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
                 if financials.get("cash_per_share") is not None:
                     lines.append(f"      • Cash: ${financials['cash_per_share']:.2f}")
         
+        # Data Freshness Warning
+        lines.append("")
+        lines.append("  ⚠️  数据说明:")
+        lines.append("    • ROE、FCF、利润率均为TTM数据(过去12个月)")
+        lines.append("    • TTM数据可能跨越不同财年和季度")
+        lines.append("    • 如需特定年度数据，请参考公司年报")
         lines.append("")
     
     # Agent details

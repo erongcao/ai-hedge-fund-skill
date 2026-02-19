@@ -1,0 +1,161 @@
+#!/usr/bin/env python3
+"""
+🇨🇳 China Stock Quick Analyzer
+Fast analysis tool for Chinese A-shares (simplified version)
+"""
+
+import sys
+import argparse
+
+def quick_analyze(ticker: str, name: str = ""):
+    """Quick analysis using AKShare spot data"""
+    try:
+        import akshare as ak
+        import pandas as pd
+        
+        ticker_clean = ticker.upper().replace('.SZ', '').replace('.SH', '')
+        
+        print(f"\n{'='*70}")
+        print(f"🇨🇳 中国A股快速分析: {name or ticker} ({ticker})")
+        print(f"{'='*70}\n")
+        
+        # Get real-time data (fast)
+        print("📊 获取实时数据...")
+        df = ak.stock_zh_a_spot_em()
+        stock = df[df['代码'] == ticker_clean]
+        
+        if stock.empty:
+            print(f"❌ 未找到股票 {ticker}")
+            return
+        
+        row = stock.iloc[0]
+        
+        # Basic Info
+        stock_name = row.get('名称', name or ticker)
+        print(f"📋 基本信息:")
+        print(f"  股票名称: {stock_name}")
+        print(f"  股票代码: {ticker_clean}")
+        print(f"  所属行业: {row.get('所属行业', '未知')}")
+        print("")
+        
+        # Price
+        price = float(row['最新价']) if pd.notna(row['最新价']) else None
+        change = float(row['涨跌幅']) if pd.notna(row['涨跌幅']) else None
+        
+        print("💹 行情数据:")
+        if price:
+            print(f"  当前价格: ¥{price:.2f}")
+        if change:
+            emoji = "🟢" if change > 0 else "🔴"
+            print(f"  {emoji} 涨跌幅: {change:+.2f}%")
+        print("")
+        
+        # Valuation
+        print("📈 估值指标:")
+        pe = float(row['市盈率-动态']) if pd.notna(row.get('市盈率-动态')) else None
+        pb = float(row['市净率']) if pd.notna(row.get('市净率')) else None
+        mc = float(row['总市值']) / 100000000 if pd.notna(row.get('总市值')) else None
+        
+        if pe:
+            pe_emoji = "🟢" if pe < 30 else "🟡" if pe < 50 else "🔴"
+            print(f"  {pe_emoji} 市盈率(TTM): {pe:.2f}")
+        if pb:
+            pb_emoji = "🟢" if pb < 3 else "🟡" if pb < 5 else "🔴"
+            print(f"  {pb_emoji} 市净率: {pb:.2f}")
+        if mc:
+            print(f"  总市值: {mc:.2f}亿")
+        print("")
+        
+        # Technical
+        print("📉 技术指标:")
+        high = float(row['最高']) if pd.notna(row.get('最高')) else None
+        low = float(row['最低']) if pd.notna(row.get('最低')) else None
+        open_price = float(row['今开']) if pd.notna(row.get('今开')) else None
+        prev_close = float(row['昨收']) if pd.notna(row.get('昨收')) else None
+        
+        if high and low and price:
+            position = (price - low) / (high - low) * 100 if high != low else 50
+            pos_emoji = "🟢" if position > 60 else "🟡" if position > 40 else "🔴"
+            print(f"  {pos_emoji} 日内位置: {position:.1f}% (高{high:.2f}/低{low:.2f})")
+        
+        turnover = float(row['换手率']) if pd.notna(row.get('换手率')) else None
+        if turnover:
+            turn_emoji = "🟢" if turnover > 5 else "🟡" if turnover > 2 else "⚪"
+            print(f"  {turn_emoji} 换手率: {turnover:.2f}%")
+        
+        amplitude = float(row['振幅']) if pd.notna(row.get('振幅')) else None
+        if amplitude:
+            print(f"  振幅: {amplitude:.2f}%")
+        print("")
+        
+        # Volume
+        volume = float(row['成交量']) / 10000 if pd.notna(row.get('成交量')) else None
+        turnover_amount = float(row['成交额']) / 10000 if pd.notna(row.get('成交额')) else None
+        
+        if volume:
+            print("💹 成交情况:")
+            print(f"  成交量: {volume:.2f}万手")
+        if turnover_amount:
+            print(f"  成交额: {turnover_amount:.2f}万元")
+        print("")
+        
+        # Quick suggestion
+        print("💡 快速评估:")
+        score = 0
+        reasons = []
+        
+        if pe and pe < 30:
+            score += 1
+            reasons.append("估值合理")
+        elif pe and pe > 50:
+            score -= 1
+            reasons.append("估值偏高")
+        
+        if change and change > 5:
+            score -= 1
+            reasons.append("涨幅过大，谨慎追高")
+        elif change and change < -5:
+            score += 1
+            reasons.append("回调较多，或有机会")
+        
+        if turnover and turnover > 5:
+            score += 1
+            reasons.append("交投活跃")
+        
+        if score >= 2:
+            suggestion = "🟢 值得关注"
+        elif score >= 0:
+            suggestion = "🟡 中性观望"
+        else:
+            suggestion = "🟠 谨慎对待"
+        
+        print(f"  {suggestion}")
+        if reasons:
+            print(f"  理由: {', '.join(reasons)}")
+        
+        print(f"\n{'='*70}\n")
+        
+        # Disclaimer
+        print("⚠️ 免责声明:")
+        print("  以上数据来自东方财富，仅供参考")
+        print("  不构成投资建议，请独立判断")
+        print("")
+        
+    except Exception as e:
+        print(f"❌ 分析出错: {e}")
+        import traceback
+        traceback.print_exc()
+
+
+def main():
+    parser = argparse.ArgumentParser(description="中国A股快速分析")
+    parser.add_argument("code", help="股票代码 (如: 300017)")
+    parser.add_argument("--name", "-n", help="股票名称 (可选)", default="")
+    
+    args = parser.parse_args()
+    
+    quick_analyze(args.code, args.name)
+
+
+if __name__ == "__main__":
+    main()
