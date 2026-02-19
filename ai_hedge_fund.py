@@ -551,10 +551,13 @@ class EnhancedAIHedgeFund:
                 "gross_margin": enhanced_data.financials.gross_margin,
                 "debt_to_equity": enhanced_data.financials.debt_to_equity,
                 "return_on_equity": enhanced_data.financials.return_on_equity,
+                "return_on_assets": enhanced_data.financials.return_on_assets,
                 "free_cash_flow": enhanced_data.financials.free_cash_flow,
                 "revenue_growth_yoy": enhanced_data.financials.revenue_growth_yoy,
                 "financial_health_score": enhanced_data.financials.financial_health_score,
             },
+            "sector": enhanced_data.sector,
+            "industry": enhanced_data.industry,
         }
         
         return ConsensusResult(
