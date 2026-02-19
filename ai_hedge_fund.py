@@ -561,8 +561,10 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
         
         # Dividend
         dividend = result.enhanced_data.get("dividend", {})
-        if dividend.get("yield_pct"):
+        if dividend.get("yield_pct") is not None and dividend.get("yield_pct") > 0:
             lines.append(f"  💰 Dividend: {dividend['yield_pct']:.2f}% ({dividend.get('income_rating', 'N/A')})")
+        else:
+            lines.append(f"  💰 Dividend: None (no dividend)")
         
         # Macro
         macro = result.enhanced_data.get("macro", {})
