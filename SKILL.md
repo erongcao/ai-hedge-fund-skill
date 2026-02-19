@@ -70,8 +70,19 @@ ai-hedge-fund global analyze --ticker 0700.HK
 
 # Or use individual commands
 ./ai-hedge-fund AAPL                    # Basic analysis
+./ai-hedge-fund AAPL --detailed         # Detailed agent reasoning
+./ai-hedge-fund AAPL --hot              # Include trending stocks
+./ai-hedge-fund AAPL --rumor            # Include rumor scan
+./ai-hedge-fund AAPL --hot --rumor      # Full intelligence
+
 ./portfolio-build AAPL,MSFT,GOOGL       # Portfolio construction
 ./backtester AAPL,MSFT --start 2023-01-01 --end 2024-01-01  # Backtest
+
+# Market Intelligence
+./scanner hot                           # Trending stocks & crypto
+./scanner rumor                         # Market-wide rumor scan
+./scanner rumor -t NVDA                 # Scan specific ticker
+./scanner scan                          # Hot + Rumor combined
 ```
 
 ## Data Sources
@@ -197,6 +208,80 @@ Based on features learned from stock-analysis skill, we've added 4 new agents:
 - Dividend yield analysis
 - Payout ratio safety assessment
 - Dividend growth history
+
+## Market Intelligence (NEW in v2.2)
+
+### 🔥 Hot Scanner
+**Find trending stocks and crypto before they hit mainstream**
+
+**Data Sources**:
+- CoinGecko Trending (top trending crypto)
+- Yahoo Finance Movers (gainers/losers/high volume)
+
+**Usage**:
+```bash
+# Standalone hot scanner
+./scanner hot
+
+# Include in stock analysis
+./ai-hedge-fund TSLA --hot
+```
+
+**Output Example**:
+```
+🔥 HOT SCANNER - Trending Stocks & Crypto
+Found 6 trending assets
+
+📈 STOCKS:
+  🟢 UBER    +3.18%
+  🟢 NVDA    +2.45%
+
+🪙 CRYPTO:
+  🚀 ESP-USD    +46.91%
+  📉 OP-USD     -14.47%
+```
+
+### 🔮 Rumor Scanner
+**Detect early signals, M&A rumors, and insider activity**
+
+**Detection Types**:
+- 🤝 **M&A**: Merger, acquisition, takeover rumors
+- 👤 **Insider**: Insider buying/selling activity
+- ⬆️ **Upgrade**: Analyst upgrades, price target raises
+- ⬇️ **Downgrade**: Analyst downgrades, target cuts
+- 📊 **Earnings**: Earnings surprises, guidance changes
+- 🤝 **Partnership**: New deals, collaborations
+
+**Confidence Levels**:
+- 🔴 **High**: Reputable source (Reuters, Bloomberg, CNBC)
+- 🟡 **Medium**: Confirmed keywords ("announces", "SEC filing")
+- ⚪ **Low**: Early signals, unconfirmed
+
+**Usage**:
+```bash
+# Scan specific ticker
+./scanner rumor -t TSLA
+
+# Scan market-wide
+./scanner rumor
+
+# Include in analysis
+./ai-hedge-fund NVDA --rumor
+```
+
+**Output Example**:
+```
+🔮 RUMOR SCANNER - Early Signals
+Detected rumors for 3 tickers
+
+📰 NVDA:
+  🟡 ⬆️ [UPGRADE] Goldman raises target to $850...
+     Source: MarketWatch | Confidence: medium
+
+📰 TSLA:
+  ⚪ 🤝 [PARTNERSHIP] Rumored deal with...
+     Source: Twitter | Confidence: low
+```
 - Income rating (excellent/good/moderate/poor)
 - **Example**: "2.8% yield, safe payout at 45%, dividend aristocrat"
 

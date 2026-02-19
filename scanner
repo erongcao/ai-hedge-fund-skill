@@ -1,0 +1,85 @@
+#!/usr/bin/env python3
+"""
+🔥 AI Hedge Fund - Hot Scanner & Rumor Detector
+Find trending stocks and detect early market signals
+"""
+
+import sys
+import argparse
+from hot_rumor_scanner import HotScanner, RumorScanner
+from hot_rumor_scanner import format_hot_scanner_results, format_rumor_results
+
+
+def main():
+    parser = argparse.ArgumentParser(
+        description="Hot Scanner & Rumor Detector for AI Hedge Fund"
+    )
+    parser.add_argument(
+        "command",
+        choices=["hot", "rumor", "scan"],
+        help="hot: trending stocks, rumor: detect rumors, scan: both"
+    )
+    parser.add_argument(
+        "--ticker", "-t",
+        help="Specific ticker to scan for rumors"
+    )
+    parser.add_argument(
+        "--limit", "-l",
+        type=int,
+        default=15,
+        help="Limit number of results (default: 15)"
+    )
+    parser.add_argument(
+        "--crypto",
+        action="store_true",
+        help="Include cryptocurrency in scan"
+    )
+    
+    args = parser.parse_args()
+    
+    if args.command == "hot":
+        print("🔥 Scanning for trending stocks and crypto...")
+        print("   (This may take 10-20 seconds)\n")
+        
+        scanner = HotScanner()
+        hot_stocks = scanner.get_hot_stocks()
+        
+        print(format_hot_scanner_results(hot_stocks))
+        
+    elif args.command == "rumor":
+        if args.ticker:
+            print(f"🔮 Scanning for rumors about {args.ticker}...")
+            scanner = RumorScanner()
+            rumors = scanner.scan_for_ticker(args.ticker.upper())
+            
+            if rumors:
+                print(format_rumor_results({args.ticker.upper(): rumors}))
+            else:
+                print(f"\n  No rumors detected for {args.ticker}\n")
+        else:
+            print("🔮 Scanning market for rumors and early signals...")
+            print("   Analyzing: AAPL, MSFT, TSLA, NVDA, GOOGL, AMZN, META, AMD\n")
+            
+            scanner = RumorScanner()
+            rumors = scanner.get_market_rumors()
+            
+            print(format_rumor_results(rumors))
+            
+    elif args.command == "scan":
+        print("🔥🔮 Full market scan - Hot stocks + Rumors...")
+        print("   (This may take 20-30 seconds)\n")
+        
+        # Hot scanner
+        hot_scanner = HotScanner()
+        hot_stocks = hot_scanner.get_hot_stocks()
+        print(format_hot_scanner_results(hot_stocks))
+        
+        # Rumor scanner
+        print("\n")
+        rumor_scanner = RumorScanner()
+        rumors = rumor_scanner.get_market_rumors()
+        print(format_rumor_results(rumors))
+
+
+if __name__ == "__main__":
+    main()

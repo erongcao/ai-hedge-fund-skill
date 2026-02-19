@@ -610,6 +610,8 @@ def main():
     parser.add_argument("--detailed", "-d", action="store_true", help="Show detailed agent reasoning")
     parser.add_argument("--json", "-j", action="store_true", help="Output as JSON")
     parser.add_argument("--compare", "-c", action="store_true", help="Compare multiple stocks")
+    parser.add_argument("--hot", action="store_true", help="Include trending stocks check")
+    parser.add_argument("--rumor", action="store_true", help="Include rumor scanner for this ticker")
     
     args = parser.parse_args()
     
@@ -645,6 +647,23 @@ def main():
             print(json.dumps(result_dict, indent=2))
         else:
             print(format_output(result, detailed=args.detailed))
+            
+            # Optional: Hot scanner
+            if args.hot:
+                from hot_rumor_scanner import HotScanner, format_hot_scanner_results
+                scanner = HotScanner()
+                hot = scanner.get_hot_stocks()
+                print(format_hot_scanner_results(hot))
+            
+            # Optional: Rumor scanner
+            if args.rumor:
+                from hot_rumor_scanner import RumorScanner, format_rumor_results
+                scanner = RumorScanner()
+                rumors = scanner.scan_for_ticker(tickers[0])
+                if rumors:
+                    print(format_rumor_results({tickers[0]: rumors}))
+                else:
+                    print(f"\n🔮 No rumors detected for {tickers[0]}\n")
     else:
         # Compare mode
         results = []
