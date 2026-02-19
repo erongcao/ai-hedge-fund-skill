@@ -84,9 +84,31 @@ class FinancialMetrics:
     price_to_cash_flow: Optional[float] = None
     enterprise_value: Optional[float] = None
     
+    # Investment & Innovation (NEW)
+    rd_expense: Optional[float] = None  # in millions
+    rd_to_revenue: Optional[float] = None  # R&D as % of revenue
+    capex: Optional[float] = None  # Capital expenditure in millions
+    capex_to_revenue: Optional[float] = None
+    intangibles: Optional[float] = None  # Goodwill + Intangible assets
+    tangible_book_value: Optional[float] = None
+    
+    # Balance Sheet Strength (NEW)
+    total_assets: Optional[float] = None  # in millions
+    total_liabilities: Optional[float] = None  # in millions
+    shareholders_equity: Optional[float] = None  # in millions
+    net_debt: Optional[float] = None  # in millions
+    working_capital: Optional[float] = None  # in millions
+    
+    # Per Share Metrics (NEW)
+    book_value_per_share: Optional[float] = None
+    cash_per_share: Optional[float] = None
+    revenue_per_share: Optional[float] = None
+    
     # Health score
     financial_health_score: int = 50  # 0-100
     health_explanation: str = ""
+    innovation_score: int = 50  # 0-100 (NEW)
+    innovation_explanation: str = ""
 
 
 @dataclass
@@ -444,6 +466,29 @@ class EnhancedDataFetcher:
             financials.price_to_cash_flow = info.get('priceToCashFlow')
             financials.enterprise_value = info.get('enterpriseValue') / 1e9 if info.get('enterpriseValue') else None  # in billions
             
+            # Investment & Innovation (NEW)
+            financials.rd_expense = info.get('researchDevelopment') / 1e6 if info.get('researchDevelopment') else None
+            revenue = info.get('totalRevenue', 0)
+            if revenue and financials.rd_expense:
+                financials.rd_to_revenue = (financials.rd_expense * 1e6 / revenue) * 100
+            financials.capex = info.get('capitalExpenditures') / 1e6 if info.get('capitalExpenditures') else None
+            if revenue and financials.capex:
+                financials.capex_to_revenue = (abs(financials.capex) * 1e6 / revenue) * 100
+            financials.intangibles = (info.get('goodWill', 0) + info.get('intangibleAssets', 0)) / 1e6 if (info.get('goodWill') or info.get('intangibleAssets')) else None
+            financials.tangible_book_value = info.get('tangibleBookValue')
+            
+            # Balance Sheet Strength (NEW)
+            financials.total_assets = info.get('totalAssets') / 1e6 if info.get('totalAssets') else None
+            financials.total_liabilities = info.get('totalLiabilities') / 1e6 if info.get('totalLiabilities') else None
+            financials.shareholders_equity = info.get('totalStockholderEquity') / 1e6 if info.get('totalStockholderEquity') else None
+            financials.net_debt = info.get('netDebt') / 1e6 if info.get('netDebt') else None
+            financials.working_capital = info.get('workingCapital') / 1e6 if info.get('workingCapital') else None
+            
+            # Per Share Metrics (NEW)
+            financials.book_value_per_share = info.get('bookValue')
+            financials.cash_per_share = info.get('cashPerShare')
+            financials.revenue_per_share = info.get('revenuePerShare')
+            
             # Calculate financial health score
             score = 50
             factors = []
@@ -489,6 +534,39 @@ class EnhancedDataFetcher:
             
             financials.financial_health_score = max(0, min(100, score))
             financials.health_explanation = "; ".join(factors) if factors else "Average financial health"
+            
+            # Calculate innovation score (NEW)
+            innov_score = 50
+            innov_factors = []
+            
+            # R&D Investment (max +25)
+            if financials.rd_to_revenue:
+                if financials.rd_to_revenue > 20:
+                    innov_score += 25
+                    innov_factors.append(f"Heavy R&D: {financials.rd_to_revenue:.1f}%")
+                elif financials.rd_to_revenue > 10:
+                    innov_score += 15
+                    innov_factors.append(f"Strong R&D: {financials.rd_to_revenue:.1f}%")
+                elif financials.rd_to_revenue > 5:
+                    innov_score += 5
+                    innov_factors.append(f"Moderate R&D: {financials.rd_to_revenue:.1f}%")
+            
+            # CapEx Investment (max +15)
+            if financials.capex_to_revenue and financials.capex_to_revenue > 10:
+                innov_score += 15
+                innov_factors.append(f"High CapEx: {financials.capex_to_revenue:.1f}%")
+            elif financials.capex_to_revenue and financials.capex_to_revenue > 5:
+                innov_score += 5
+                innov_factors.append(f"Moderate CapEx: {financials.capex_to_revenue:.1f}%")
+            
+            # Tech sector bonus
+            sector = info.get('sector', '')
+            if sector in ['Technology', 'Healthcare', 'Biotechnology', 'Communications']:
+                innov_score += 10
+                innov_factors.append("Innovation sector")
+            
+            financials.innovation_score = max(0, min(100, innov_score))
+            financials.innovation_explanation = "; ".join(innov_factors) if innov_factors else "Standard innovation level"
             
         except Exception as e:
             financials.health_explanation = f"Financial data unavailable: {str(e)[:50]}"

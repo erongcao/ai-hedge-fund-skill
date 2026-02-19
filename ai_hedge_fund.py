@@ -590,21 +590,66 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
         if financials:
             lines.append("")
             lines.append("  📈 Financial Health:")
-            if financials.get("operating_margin") is not None:
-                lines.append(f"    💵 Operating Margin: {financials['operating_margin']:.1f}%")
-            if financials.get("debt_to_equity") is not None:
-                debt_emoji = "✅" if financials['debt_to_equity'] < 0.5 else "⚠️" if financials['debt_to_equity'] < 1.0 else "❌"
-                lines.append(f"    {debt_emoji} Debt/Equity: {financials['debt_to_equity']:.2f}x")
-            if financials.get("return_on_equity") is not None:
-                lines.append(f"    📊 ROE: {financials['return_on_equity']:.1f}%")
-            if financials.get("free_cash_flow") is not None:
-                fcf = financials['free_cash_flow']
-                fcf_emoji = "✅" if fcf > 0 else "❌"
-                lines.append(f"    {fcf_emoji} Free Cash Flow: ${fcf:.0f}M")
-            if financials.get("financial_health_score"):
+            
+            # Health and Innovation Scores
+            if financials.get("financial_health_score") is not None:
                 score = financials['financial_health_score']
                 score_emoji = "🟢" if score >= 70 else "🟡" if score >= 50 else "🔴"
                 lines.append(f"    {score_emoji} Health Score: {score}/100")
+            
+            if financials.get("innovation_score") is not None:
+                innov = financials['innovation_score']
+                innov_emoji = "🟢" if innov >= 70 else "🟡" if innov >= 50 else "🔴"
+                lines.append(f"    {innov_emoji} Innovation Score: {innov}/100")
+            
+            lines.append("")
+            
+            # Profitability
+            lines.append("    💰 Profitability:")
+            if financials.get("operating_margin") is not None:
+                lines.append(f"      • Operating Margin: {financials['operating_margin']:.1f}%")
+            if financials.get("gross_margin") is not None:
+                lines.append(f"      • Gross Margin: {financials['gross_margin']:.1f}%")
+            if financials.get("return_on_equity") is not None:
+                lines.append(f"      • ROE: {financials['return_on_equity']:.1f}%")
+            
+            # Debt & Leverage
+            lines.append("    ⚖️  Debt & Leverage:")
+            if financials.get("debt_to_equity") is not None:
+                debt_emoji = "✅" if financials['debt_to_equity'] < 0.5 else "⚠️" if financials['debt_to_equity'] < 1.0 else "❌"
+                lines.append(f"      {debt_emoji} Debt/Equity: {financials['debt_to_equity']:.2f}x")
+            if financials.get("current_ratio") is not None:
+                lines.append(f"      • Current Ratio: {financials['current_ratio']:.2f}")
+            if financials.get("net_debt") is not None:
+                nd = financials['net_debt']
+                lines.append(f"      • Net Debt: ${nd:,.0f}M")
+            
+            # Cash Flow
+            lines.append("    💵 Cash Flow:")
+            if financials.get("free_cash_flow") is not None:
+                fcf = financials['free_cash_flow']
+                fcf_emoji = "✅" if fcf > 0 else "❌"
+                lines.append(f"      {fcf_emoji} Free Cash Flow: ${fcf:,.0f}M")
+            if financials.get("cash") is not None:
+                lines.append(f"      • Cash: ${financials['cash']:,.0f}M")
+            
+            # Innovation Investment
+            if financials.get("rd_to_revenue") or financials.get("capex_to_revenue"):
+                lines.append("    🔬 Innovation Investment:")
+                if financials.get("rd_to_revenue") is not None:
+                    lines.append(f"      • R&D: {financials['rd_to_revenue']:.1f}% of revenue")
+                if financials.get("rd_expense") is not None:
+                    lines.append(f"      • R&D Spend: ${financials['rd_expense']:,.0f}M")
+                if financials.get("capex_to_revenue") is not None:
+                    lines.append(f"      • CapEx: {financials['capex_to_revenue']:.1f}% of revenue")
+            
+            # Per Share Metrics
+            if financials.get("book_value_per_share") or financials.get("cash_per_share"):
+                lines.append("    📊 Per Share:")
+                if financials.get("book_value_per_share") is not None:
+                    lines.append(f"      • Book Value: ${financials['book_value_per_share']:.2f}")
+                if financials.get("cash_per_share") is not None:
+                    lines.append(f"      • Cash: ${financials['cash_per_share']:.2f}")
         
         lines.append("")
     
@@ -645,6 +690,8 @@ def main():
     parser.add_argument("--compare", "-c", action="store_true", help="Compare multiple stocks")
     parser.add_argument("--hot", action="store_true", help="Include trending stocks check")
     parser.add_argument("--rumor", action="store_true", help="Include rumor scanner for this ticker")
+    parser.add_argument("--visual", "-v", action="store_true", help="Show financial health visualization")
+    parser.add_argument("--dashboard", action="store_true", help="Show full financial dashboard")
     
     args = parser.parse_args()
     
@@ -681,6 +728,21 @@ def main():
         else:
             print(format_output(result, detailed=args.detailed))
             
+            # Optional: Financial visualization
+            if args.visual or args.dashboard:
+                from visualizer import FinancialVisualizer, format_financial_summary
+                viz = FinancialVisualizer()
+                financials = result.enhanced_data.get("financials", {}) if result.enhanced_data else {}
+                
+                if financials:
+                    if args.dashboard:
+                        # Full dashboard
+                        print(viz.generate_ascii_health_dashboard(tickers[0], financials))
+                        print(viz.generate_radar_summary(tickers[0], financials))
+                    else:
+                        # Quick visual summary
+                        print(viz.generate_ascii_health_dashboard(tickers[0], financials))
+            
             # Optional: Hot scanner
             if args.hot:
                 from hot_rumor_scanner import HotScanner, format_hot_scanner_results
@@ -712,6 +774,20 @@ def main():
         for r in results:
             emoji = {"bullish": "🟢", "bearish": "🔴", "neutral": "🟡"}[r.signal]
             print(f"{emoji} {r.ticker}: {r.signal.upper()} ({r.confidence}%) - {r.recommendation}")
+        
+        # Optional: Financial comparison table
+        if args.visual or args.dashboard:
+            from visualizer import FinancialVisualizer
+            viz = FinancialVisualizer()
+            
+            # Collect financials for all tickers
+            all_financials = {}
+            for r in results:
+                if r.enhanced_data and r.enhanced_data.get("financials"):
+                    all_financials[r.ticker] = r.enhanced_data["financials"]
+            
+            if all_financials:
+                print(viz.generate_comparison_table(all_financials))
 
 
 if __name__ == "__main__":
