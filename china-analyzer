@@ -1,0 +1,254 @@
+#!/usr/bin/env python3
+"""
+🇨🇳 China Stock Analyzer
+Specialized analysis tool for Chinese A-shares
+"""
+
+import sys
+import argparse
+from typing import Dict, List
+
+# Import our adapters
+from china_data_adapter import ChinaDataAdapter, ChinaStockData
+from china_news_adapter import ChinaNewsAdapter
+
+
+def format_china_analysis(data: ChinaStockData, news_report: Dict) -> str:
+    """Format analysis output for Chinese stocks"""
+    lines = []
+    
+    lines.append(f"\n{'='*70}")
+    lines.append(f"🇨🇳 中国A股分析报告: {data.name} ({data.ticker})")
+    lines.append(f"{'='*70}\n")
+    
+    # Basic Info
+    lines.append("📊 基本信息:")
+    lines.append(f"  股票名称: {data.name}")
+    lines.append(f"  股票代码: {data.ticker}")
+    lines.append(f"  所属行业: {data.industry or '未知'}")
+    lines.append(f"  所属板块: {data.sector or '未知'}")
+    if data.listing_date:
+        lines.append(f"  上市日期: {data.listing_date}")
+    lines.append("")
+    
+    # Price Info
+    lines.append("💹 行情数据:")
+    if data.current_price:
+        lines.append(f"  当前价格: ¥{data.current_price:.2f}")
+    if data.change_pct:
+        emoji = "🟢" if data.change_pct > 0 else "🔴"
+        lines.append(f"  {emoji} 涨跌幅: {data.change_pct:+.2f}%")
+    if data.volume:
+        lines.append(f"  成交量: {data.volume:.2f}万股")
+    if data.turnover:
+        lines.append(f"  成交额: {data.turnover:.2f}万元")
+    lines.append("")
+    
+    # Valuation
+    lines.append("📈 估值指标:")
+    if data.pe_ratio:
+        pe_emoji = "🟢" if data.pe_ratio < 30 else "🟡" if data.pe_ratio < 50 else "🔴"
+        lines.append(f"  {pe_emoji} 市盈率(TTM): {data.pe_ratio:.2f}")
+    if data.pb_ratio:
+        pb_emoji = "🟢" if data.pb_ratio < 3 else "🟡" if data.pb_ratio < 5 else "🔴"
+        lines.append(f"  {pb_emoji} 市净率: {data.pb_ratio:.2f}")
+    if data.ps_ratio:
+        lines.append(f"  市销率: {data.ps_ratio:.2f}")
+    if data.market_cap:
+        lines.append(f"  总市值: {data.market_cap:.2f}亿")
+    lines.append("")
+    
+    # Financials
+    lines.append("💰 财务指标:")
+    if data.roe:
+        roe_emoji = "🟢" if data.roe > 15 else "🟡" if data.roe > 10 else "🔴"
+        lines.append(f"  {roe_emoji} 净资产收益率(ROE): {data.roe:.2f}%")
+    if data.gross_margin:
+        gm_emoji = "🟢" if data.gross_margin > 30 else "🟡" if data.gross_margin > 15 else "🔴"
+        lines.append(f"  {gm_emoji} 毛利率: {data.gross_margin:.2f}%")
+    if data.net_margin:
+        lines.append(f"  净利率: {data.net_margin:.2f}%")
+    if data.revenue:
+        lines.append(f"  营业收入: {data.revenue:.2f}亿")
+    if data.net_profit:
+        lines.append(f"  净利润: {data.net_profit:.2f}亿")
+    if data.debt_ratio:
+        debt_emoji = "🟢" if data.debt_ratio < 50 else "🟡" if data.debt_ratio < 70 else "🔴"
+        lines.append(f"  {debt_emoji} 资产负债率: {data.debt_ratio:.2f}%")
+    lines.append("")
+    
+    # Growth
+    if data.revenue_growth or data.profit_growth:
+        lines.append("📊 成长性:")
+        if data.revenue_growth:
+            rg_emoji = "🟢" if data.revenue_growth > 20 else "🟡" if data.revenue_growth > 0 else "🔴"
+            lines.append(f"  {rg_emoji} 营收同比增长: {data.revenue_growth:+.2f}%")
+        if data.profit_growth:
+            pg_emoji = "🟢" if data.profit_growth > 20 else "🟡" if data.profit_growth > 0 else "🔴"
+            lines.append(f"  {pg_emoji} 净利润同比增长: {data.profit_growth:+.2f}%")
+        lines.append("")
+    
+    # Technical
+    if data.ma5 or data.rsi:
+        lines.append("📉 技术指标:")
+        if data.ma5 and data.current_price:
+            ma_emoji = "🟢" if data.current_price > data.ma5 else "🔴"
+            lines.append(f"  {ma_emoji} MA5: ¥{data.ma5:.2f}")
+        if data.ma20:
+            lines.append(f"  MA20: ¥{data.ma20:.2f}")
+        if data.ma60:
+            lines.append(f"  MA60: ¥{data.ma60:.2f}")
+        if data.rsi:
+            rsi_emoji = "🟢" if 30 < data.rsi < 70 else "🔴"
+            lines.append(f"  {rsi_emoji} RSI(14): {data.rsi:.2f}")
+        lines.append("")
+    
+    # News Analysis
+    if news_report and news_report.get('analysis'):
+        analysis = news_report['analysis']
+        lines.append("📰 新闻舆情分析:")
+        
+        sentiment = analysis.get('sentiment', 'neutral')
+        sent_emoji = {'positive': '🟢', 'negative': '🔴', 'neutral': '🟡'}.get(sentiment, '⚪')
+        lines.append(f"  {sent_emoji} 总体情感: {sentiment.upper()}")
+        lines.append(f"  情感得分: {analysis.get('sentiment_score', 0):+.2f}")
+        lines.append(f"  分析新闻数: {analysis.get('total_news', 0)}篇")
+        lines.append(f"    - 正面: {analysis.get('positive_count', 0)}篇")
+        lines.append(f"    - 负面: {analysis.get('negative_count', 0)}篇")
+        lines.append(f"    - 中性: {analysis.get('neutral_count', 0)}篇")
+        
+        key_topics = analysis.get('key_topics', [])
+        if key_topics:
+            lines.append(f"  关键话题: {', '.join(key_topics)}")
+        
+        lines.append(f"  总结: {analysis.get('summary', '')}")
+        lines.append("")
+        
+        # Recent news
+        news_items = news_report.get('news_items', [])
+        if news_items:
+            lines.append("📰 最新新闻:")
+            for i, news in enumerate(news_items[:5], 1):
+                sent_marker = {'positive': '🟢', 'negative': '🔴', 'neutral': '🟡'}.get(news.sentiment, '⚪')
+                lines.append(f"  {i}. {sent_marker} {news.title[:50]}...")
+                lines.append(f"     来源: {news.source} | {news.publish_time}")
+            lines.append("")
+    
+    # Investment Suggestion
+    lines.append("💡 投资建议:")
+    suggestion = generate_china_investment_suggestion(data, news_report)
+    lines.append(f"  {suggestion}")
+    
+    lines.append(f"\n{'='*70}\n")
+    
+    return "\n".join(lines)
+
+
+def generate_china_investment_suggestion(data: ChinaStockData, news_report: Dict) -> str:
+    """Generate investment suggestion based on analysis"""
+    scores = []
+    reasons = []
+    
+    # Valuation score
+    if data.pe_ratio:
+        if data.pe_ratio < 20:
+            scores.append(2)
+            reasons.append("估值偏低")
+        elif data.pe_ratio < 40:
+            scores.append(1)
+        else:
+            scores.append(-1)
+            reasons.append("估值偏高")
+    
+    # Financial health score
+    if data.roe:
+        if data.roe > 15:
+            scores.append(2)
+            reasons.append("ROE优秀")
+        elif data.roe > 10:
+            scores.append(1)
+        else:
+            scores.append(-1)
+    
+    if data.debt_ratio:
+        if data.debt_ratio < 50:
+            scores.append(1)
+            reasons.append("负债率低")
+        elif data.debt_ratio > 70:
+            scores.append(-1)
+            reasons.append("负债率高")
+    
+    # Growth score
+    if data.profit_growth:
+        if data.profit_growth > 30:
+            scores.append(2)
+            reasons.append("盈利高增长")
+        elif data.profit_growth > 0:
+            scores.append(1)
+        else:
+            scores.append(-1)
+            reasons.append("盈利下滑")
+    
+    # News sentiment
+    if news_report and news_report.get('analysis'):
+        sentiment = news_report['analysis'].get('sentiment', 'neutral')
+        if sentiment == 'positive':
+            scores.append(1)
+            reasons.append("舆情正面")
+        elif sentiment == 'negative':
+            scores.append(-1)
+            reasons.append("舆情负面")
+    
+    total_score = sum(scores)
+    
+    if total_score >= 4:
+        return f"🟢 强烈看好 - {', '.join(reasons[:3])}"
+    elif total_score >= 2:
+        return f"🟡 适度看好 - {', '.join(reasons[:3])}"
+    elif total_score >= 0:
+        return f"⚪ 中性观望 - {', '.join(reasons[:3]) if reasons else '等待更明确信号'}"
+    elif total_score >= -2:
+        return f"🟠 谨慎看空 - {', '.join(reasons[:3])}"
+    else:
+        return f"🔴 建议回避 - {', '.join(reasons[:3])}"
+
+
+def main():
+    parser = argparse.ArgumentParser(description="中国A股分析工具")
+    parser.add_argument("code", help="股票代码 (如: 300017, 600519)")
+    parser.add_argument("--name", "-n", help="股票名称 (可选，用于新闻搜索)")
+    
+    args = parser.parse_args()
+    
+    ticker = args.code
+    name = args.name or ""
+    
+    print(f"\n🔍 正在分析: {ticker} {name}...")
+    print("这可能需要几秒钟...\n")
+    
+    # Initialize adapters
+    data_adapter = ChinaDataAdapter()
+    news_adapter = ChinaNewsAdapter()
+    
+    # Fetch stock data
+    print("📊 获取股票数据...")
+    stock_data = data_adapter.get_full_data(ticker)
+    
+    if not stock_data:
+        print(f"❌ 无法获取 {ticker} 的数据，请检查代码是否正确")
+        return
+    
+    # Use actual name if not provided
+    if not name and stock_data.name:
+        name = stock_data.name
+    
+    # Fetch news
+    print("📰 获取新闻舆情...")
+    news_report = news_adapter.get_stock_news_report(ticker, name)
+    
+    # Display analysis
+    print(format_china_analysis(stock_data, news_report))
+
+
+if __name__ == "__main__":
+    main()
