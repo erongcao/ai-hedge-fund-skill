@@ -194,8 +194,10 @@ class WarrenBuffettAgent(InvestmentAgent):
             reasoning_parts.append(f"Reasonable P/E of {pe:.1f}")
         elif pe and pe < 30:
             score += 10
-        else:
+        elif pe:
             reasoning_parts.append(f"High P/E of {pe:.1f}")
+        else:
+            reasoning_parts.append("P/E data not available")
         
         # Determine signal
         if score >= 70:
@@ -236,8 +238,10 @@ class BenGrahamAgent(InvestmentAgent):
             reasoning_parts.append(f"Attractive P/E of {pe:.1f}")
         elif pe and pe < 25:
             score += 15
-        else:
+        elif pe:
             reasoning_parts.append(f"High P/E of {pe:.1f}")
+        else:
+            reasoning_parts.append("P/E data not available")
         
         # P/B analysis
         if pb and pb < 1.5:
@@ -245,8 +249,10 @@ class BenGrahamAgent(InvestmentAgent):
             reasoning_parts.append(f"Good P/B of {pb:.1f}")
         elif pb and pb < 3.0:
             score += 10
-        else:
+        elif pb:
             reasoning_parts.append(f"High P/B of {pb:.1f}")
+        else:
+            reasoning_parts.append("P/B data not available")
         
         # Current ratio
         if current_ratio and current_ratio > 2.0:
@@ -318,6 +324,8 @@ class TechnicalAnalyst(InvestmentAgent):
             reasoning_parts.append(f"Overbought (RSI {rsi:.1f})")
         elif rsi:
             reasoning_parts.append(f"RSI neutral at {rsi:.1f}")
+        else:
+            reasoning_parts.append("RSI data not available")
         
         # Clamp score
         score = max(10, min(95, score))
@@ -360,8 +368,10 @@ class RiskManager(InvestmentAgent):
         elif beta and beta < 0.8:
             score += 10
             risks.append(f"Low beta ({beta:.1f})")
-        else:
+        elif beta:
             risks.append(f"Market beta ({beta:.1f})")
+        else:
+            risks.append("Beta data not available")
         
         # Valuation risk
         if pe and pe > 40:
@@ -531,7 +541,8 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
     lines.append(f"{signal_emoji} {result.ticker} Analysis - {result.signal.upper()} ({result.confidence}% confidence)")
     lines.append(f"{'='*60}")
     lines.append(f"Agreement: {result.agreement}")
-    lines.append(f"Date: {result.analysis_date[:10]}")
+    date_str = result.analysis_date[:10] if result.analysis_date else "N/A"
+    lines.append(f"Date: {date_str}")
     lines.append("")
     
     # Agent details

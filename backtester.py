@@ -408,18 +408,29 @@ class Backtester:
                 value += shares * prices[ticker]
         return value
     
-    def _get_prices_on_date(self, price_data: Dict, date: str) -> Dict:
+    def _get_prices_on_date(self, price_data: Dict, date_str: str) -> Dict:
         """Get all prices on a specific date"""
         prices = {}
+        from datetime import datetime
+        
         for ticker, data in price_data.items():
             # Find closest date
-            if date in data:
-                prices[ticker] = data[date]
+            if date_str in data:
+                prices[ticker] = data[date_str]
             else:
                 # Find nearest previous date
                 dates = sorted(data.keys())
+                date_obj = datetime.strptime(date_str, '%Y-%m-%d')
                 for d in reversed(dates):
-                    if d <= date:
+                    # Convert timestamp to datetime if needed
+                    if hasattr(d, 'to_pydatetime'):
+                        d_compare = d.to_pydatetime().replace(tzinfo=None)
+                    elif isinstance(d, str):
+                        d_compare = datetime.strptime(d, '%Y-%m-%d')
+                    else:
+                        d_compare = d
+                    
+                    if d_compare <= date_obj:
                         prices[ticker] = data[d]
                         break
         return prices
