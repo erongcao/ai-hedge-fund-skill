@@ -44,18 +44,20 @@ An AI-powered hedge fund team that simulates legendary investors to analyze stoc
 
 This skill creates a team of AI agents, each embodying the investment philosophy of famous investors:
 
+### Classic Investment Agents (5)
 - **Warren Buffett** - Value investing, wonderful companies at fair prices
-- **Charlie Munger** - Partner's wisdom, rationality and mental models
 - **Ben Graham** - Margin of safety, hidden gems
-- **Michael Burry** - Deep value, contrarian approach
-- **Cathie Wood** - Innovation and disruption
-- **Peter Lynch** - Ten-baggers in everyday businesses
-- **Stanley Druckenmiller** - Macro opportunities, asymmetric bets
-- **Bill Ackman** - Activist investing
 - **Technical Analyst** - Chart patterns and indicators
-- **Sentiment Analyst** - Market sentiment and news
 - **Risk Manager** - Risk metrics and position sizing
-- **Portfolio Manager** - Final decision and allocation
+- **Cathie Wood** - Innovation and disruption
+
+### Enhanced Analysis Agents (4) - NEW in v2.1
+- **Earnings Analyst** - EPS surprises, beat rates, earnings quality
+- **Wall Street Consensus** - Analyst ratings, price targets, upside
+- **Macro Strategist** - VIX, market regime, SPY/QQQ trends
+- **Dividend Investor** - Yield, payout safety, dividend growth
+
+**Total: 9 agents analyzing each stock for comprehensive coverage**
 
 ## Quick Start
 
@@ -162,6 +164,41 @@ User Request
 - Maximum drawdown
 - Sharpe ratio
 - Position size recommendations
+
+## Enhanced Analysis (NEW in v2.1)
+
+Based on features learned from stock-analysis skill, we've added 4 new agents:
+
+### Earnings Analyst
+**Focus**: Earnings surprises and quality
+- EPS surprise analysis (actual vs expected)
+- Historical beat rate (last 4 quarters)
+- Earnings growth trends
+- **Example**: "Beat by +5.2%, 3/4 quarters exceeded estimates"
+
+### Wall Street Consensus
+**Focus**: Professional analyst opinions
+- Consensus rating (strong_buy/buy/hold/sell/strong_sell)
+- Number of covering analysts
+- Price target vs current price
+- Upside/downside potential
+- **Example**: "19 analysts, consensus HOLD, +1.2% upside to target"
+
+### Macro Strategist
+**Focus**: Market environment context
+- VIX level (fear index)
+- Market regime (bull/bear/choppy)
+- SPY/QQQ 10-day trends
+- Risk-off/risk-on indicators
+- **Example**: "VIX 19.6 (elevated), choppy market, SPY flat"
+
+### Dividend Investor
+**Focus**: Income and dividend safety
+- Dividend yield analysis
+- Payout ratio safety assessment
+- Dividend growth history
+- Income rating (excellent/good/moderate/poor)
+- **Example**: "2.8% yield, safe payout at 45%, dividend aristocrat"
 
 ## Usage Examples
 

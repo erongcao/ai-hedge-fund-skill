@@ -1,11 +1,7 @@
 #!/usr/bin/env python3
 """
-AI Hedge Fund Skill - Enhanced Edition v2.1
-Integrates features from stock-analysis skill:
-- Earnings surprise analysis
-- Analyst consensus
-- Macro environment
-- Dividend analysis
+AI Hedge Fund Skill - OpenClaw Integration
+Uses parallel sub-agents to simulate legendary investors analyzing stocks.
 """
 
 import os
@@ -15,13 +11,6 @@ import argparse
 from datetime import datetime, timedelta
 from typing import Dict, List, Literal, Optional
 from dataclasses import dataclass, asdict
-
-# Import base classes
-from base import AgentSignal, ConsensusResult, InvestmentAgent
-
-# Import enhanced modules
-from data_enhancement import EnhancedDataFetcher, EnhancedStockData
-from enhanced_agents import EarningsAgent, AnalystConsensusAgent, MacroAgent, DividendAgent
 
 # Try to import optional dependencies
 try:
@@ -36,6 +25,117 @@ try:
 except ImportError:
     PANDAS_AVAILABLE = False
 
+@dataclass
+class AgentSignal:
+    """Signal from an investment agent"""
+    agent_name: str
+    signal: Literal["bullish", "bearish", "neutral"]
+    confidence: int  # 0-100
+    reasoning: str
+    key_metrics: Optional[Dict] = None
+
+@dataclass
+class ConsensusResult:
+    """Final consensus from all agents"""
+    ticker: str
+    signal: Literal["bullish", "bearish", "neutral"]
+    confidence: int
+    agreement: str
+    agent_signals: List[AgentSignal]
+    key_risks: List[str]
+    recommendation: str
+    analysis_date: str
+
+class DataFetcher:
+    """Fetch financial data from various sources"""
+    
+    def __init__(self):
+        self.cache = {}
+        
+    def get_stock_data(self, ticker: str, period: str = "1y") -> Dict:
+        """Fetch stock data from Yahoo Finance"""
+        if not YFINANCE_AVAILABLE:
+            return self._get_mock_data(ticker)
+        
+        try:
+            stock = yf.Ticker(ticker)
+            info = stock.info
+            hist = stock.history(period=period)
+            
+            # Calculate basic metrics
+            current_price = hist['Close'].iloc[-1] if not hist.empty else None
+            avg_50 = hist['Close'].rolling(50).mean().iloc[-1] if len(hist) >= 50 else None
+            avg_200 = hist['Close'].rolling(200).mean().iloc[-1] if len(hist) >= 200 else None
+            
+            # Calculate RSI
+            rsi = self._calculate_rsi(hist['Close']) if not hist.empty else None
+            
+            return {
+                "ticker": ticker,
+                "current_price": current_price,
+                "market_cap": info.get("marketCap"),
+                "pe_ratio": info.get("trailingPE"),
+                "pb_ratio": info.get("priceToBook"),
+                "roe": info.get("returnOnEquity"),
+                "debt_to_equity": info.get("debtToEquity"),
+                "operating_margin": info.get("operatingMargins"),
+                "current_ratio": info.get("currentRatio"),
+                "dividend_yield": info.get("dividendYield"),
+                "avg_50": avg_50,
+                "avg_200": avg_200,
+                "rsi": rsi,
+                "beta": info.get("beta"),
+                "sector": info.get("sector"),
+                "industry": info.get("industry"),
+                "business_summary": info.get("longBusinessSummary", "")[:500],
+            }
+        except Exception as e:
+            print(f"Error fetching data for {ticker}: {e}", file=sys.stderr)
+            return self._get_mock_data(ticker)
+    
+    def _calculate_rsi(self, prices: pd.Series, period: int = 14) -> float:
+        """Calculate Relative Strength Index"""
+        if PANDAS_AVAILABLE and len(prices) >= period:
+            delta = prices.diff()
+            gain = (delta.where(delta > 0, 0)).rolling(window=period).mean()
+            loss = (-delta.where(delta < 0, 0)).rolling(window=period).mean()
+            rs = gain / loss
+            rsi = 100 - (100 / (1 + rs))
+            return rsi.iloc[-1]
+        return 50.0  # Neutral
+    
+    def _get_mock_data(self, ticker: str) -> Dict:
+        """Return mock data for testing"""
+        return {
+            "ticker": ticker,
+            "current_price": 150.0,
+            "market_cap": 2000000000000,
+            "pe_ratio": 25.0,
+            "pb_ratio": 3.0,
+            "roe": 0.15,
+            "debt_to_equity": 0.3,
+            "operating_margin": 0.20,
+            "current_ratio": 1.5,
+            "dividend_yield": 0.02,
+            "avg_50": 145.0,
+            "avg_200": 140.0,
+            "rsi": 55.0,
+            "beta": 1.1,
+            "sector": "Technology",
+            "industry": "Consumer Electronics",
+            "business_summary": f"Leading technology company {ticker}",
+        }
+
+class InvestmentAgent:
+    """Base class for investment agents"""
+    
+    def __init__(self, name: str, philosophy: str):
+        self.name = name
+        self.philosophy = philosophy
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        """Analyze stock data and return signal - override in subclass"""
+        raise NotImplementedError
 
 class WarrenBuffettAgent(InvestmentAgent):
     """Warren Buffett value investing analysis"""
@@ -99,33 +199,24 @@ class WarrenBuffettAgent(InvestmentAgent):
         else:
             reasoning_parts.append("P/E data not available")
         
-        # Market cap (Buffett prefers large caps)
-        market_cap = data.get("market_cap", 0)
-        if market_cap and market_cap > 100e9:
-            score += 10
-            reasoning_parts.append("Large cap - stable business")
-        
-        # Clamp score
-        score = max(10, min(95, score))
-        
-        if score >= 65:
+        # Determine signal
+        if score >= 70:
             signal = "bullish"
-        elif score <= 35:
-            signal = "bearish"
-        else:
+        elif score >= 40:
             signal = "neutral"
+        else:
+            signal = "bearish"
         
         return AgentSignal(
             agent_name=self.name,
             signal=signal,
             confidence=score,
-            reasoning="; ".join(reasoning_parts) if reasoning_parts else "Mixed signals",
-            key_metrics={"roe": roe, "pe": pe, "debt": debt}
+            reasoning="; ".join(reasoning_parts) if reasoning_parts else "Insufficient data",
+            key_metrics={"roe": roe, "debt_to_equity": debt, "operating_margin": margin, "pe_ratio": pe}
         )
 
-
 class BenGrahamAgent(InvestmentAgent):
-    """Ben Graham deep value analysis"""
+    """Ben Graham margin of safety analysis"""
     
     def __init__(self):
         super().__init__(
@@ -172,38 +263,31 @@ class BenGrahamAgent(InvestmentAgent):
         
         # Margin of safety concept
         if score >= 60:
-            reasoning_parts.append("Good margin of safety")
-        
-        # Clamp score
-        score = max(10, min(95, score))
-        
-        if score >= 65:
             signal = "bullish"
-        elif score <= 35:
-            signal = "bearish"
-        else:
+        elif score >= 30:
             signal = "neutral"
+        else:
+            signal = "bearish"
         
         return AgentSignal(
             agent_name=self.name,
             signal=signal,
             confidence=score,
-            reasoning="; ".join(reasoning_parts) if reasoning_parts else "No clear value signal",
-            key_metrics={"pe": pe, "pb": pb, "current_ratio": current_ratio}
+            reasoning="; ".join(reasoning_parts) if reasoning_parts else "High valuation",
+            key_metrics={"pe_ratio": pe, "pb_ratio": pb, "current_ratio": current_ratio}
         )
 
-
 class TechnicalAnalyst(InvestmentAgent):
-    """Technical analysis using price action"""
+    """Technical analysis based on price action"""
     
     def __init__(self):
         super().__init__(
             "Technical Analyst",
-            "Price action, trends, support/resistance, momentum."
+            "Price action, trends, and momentum indicators."
         )
     
     def analyze(self, data: Dict) -> AgentSignal:
-        score = 50
+        score = 50  # Start neutral
         reasoning_parts = []
         
         price = data.get("current_price", 0)
@@ -261,7 +345,6 @@ class TechnicalAnalyst(InvestmentAgent):
             key_metrics={"rsi": rsi, "price_vs_50ma": price > avg50 if price and avg50 else None}
         )
 
-
 class RiskManager(InvestmentAgent):
     """Risk assessment and position sizing"""
     
@@ -318,7 +401,6 @@ class RiskManager(InvestmentAgent):
             key_metrics={"beta": beta, "risks": risks}
         )
 
-
 class CathieWoodAgent(InvestmentAgent):
     """Cathie Wood growth/innovation analysis"""
     
@@ -333,33 +415,21 @@ class CathieWoodAgent(InvestmentAgent):
         reasoning_parts = []
         
         sector = data.get("sector", "")
-        growth_sectors = ["Technology", "Healthcare", "Biotechnology", "Communications"]
+        pe = data.get("pe_ratio", 0)
         
-        # Sector preference
+        # Growth sectors
+        growth_sectors = ["Technology", "Healthcare", "Communication Services"]
         if sector in growth_sectors:
             score += 20
-            reasoning_parts.append(f"Growth sector: {sector}")
-        else:
-            score -= 15
-            reasoning_parts.append(f"Traditional sector: {sector}")
+            reasoning_parts.append(f"{sector} is innovation-friendly")
         
-        # High valuation tolerance (for growth)
-        pe = data.get("pe_ratio", 0)
-        if pe and pe > 50:
+        # High P/E acceptable for growth
+        if pe and pe > 30:
             score += 10
-            reasoning_parts.append("High P/E acceptable for growth")
-        elif pe and pe < 20:
+            reasoning_parts.append("Premium valuation acceptable for growth")
+        elif pe and pe < 15:
             score -= 10
-            reasoning_parts.append("Low P/E suggests limited growth")
-        
-        # Innovation indicators
-        market_cap = data.get("market_cap", 0)
-        if market_cap and market_cap < 50e9:
-            score += 15
-            reasoning_parts.append("Mid-cap with growth potential")
-        
-        # Clamp score
-        score = max(10, min(95, score))
+            reasoning_parts.append("Low P/E suggests mature/declining business")
         
         if score >= 65:
             signal = "bullish"
@@ -372,75 +442,36 @@ class CathieWoodAgent(InvestmentAgent):
             agent_name=self.name,
             signal=signal,
             confidence=score,
-            reasoning="; ".join(reasoning_parts) if reasoning_parts else "Neutral on growth potential",
-            key_metrics={"sector": sector, "growth_potential": score > 60}
+            reasoning="; ".join(reasoning_parts) if reasoning_parts else "Neutral on innovation potential"
         )
 
-
-class EnhancedAIHedgeFund:
-    """Enhanced AI Hedge Fund with additional agents"""
+class AIHedgeFund:
+    """Main hedge fund orchestrator"""
     
     def __init__(self):
-        self.data_fetcher = EnhancedDataFetcher()
-        
-        # Classic agents
-        self.classic_agents: List[InvestmentAgent] = [
+        self.data_fetcher = DataFetcher()
+        self.agents = [
             WarrenBuffettAgent(),
             BenGrahamAgent(),
             TechnicalAnalyst(),
             RiskManager(),
             CathieWoodAgent(),
         ]
-        
-        # Enhanced agents (from stock-analysis)
-        self.enhanced_agents = [
-            EarningsAgent(),
-            AnalystConsensusAgent(),
-            MacroAgent(),
-            DividendAgent(),
-        ]
     
     def analyze(self, ticker: str, detailed: bool = False) -> ConsensusResult:
         """Run all agents and generate consensus"""
         
-        # Fetch enhanced data
-        enhanced_data = self.data_fetcher.get_enhanced_data(ticker)
-        
-        # Convert to dict for classic agents
-        data_dict = {
-            "current_price": enhanced_data.current_price,
-            "pe_ratio": enhanced_data.pe_ratio,
-            "pb_ratio": enhanced_data.pb_ratio,
-            "beta": enhanced_data.beta,
-            "roe": enhanced_data.roe,
-            "debt_to_equity": enhanced_data.debt_to_equity,
-            "operating_margin": enhanced_data.operating_margin,
-            "current_ratio": enhanced_data.current_ratio,
-            "sector": enhanced_data.sector,
-            "market_cap": enhanced_data.market_cap,
-            "avg_50": enhanced_data.avg_50,
-            "avg_200": enhanced_data.avg_200,
-            "rsi": enhanced_data.rsi,
-        }
+        # Fetch data once
+        data = self.data_fetcher.get_stock_data(ticker)
         
         # Run all agents
         agent_signals = []
-        
-        # Classic agents
-        for agent in self.classic_agents:
+        for agent in self.agents:
             try:
-                signal = agent.analyze(data_dict)
+                signal = agent.analyze(data)
                 agent_signals.append(signal)
             except Exception as e:
-                print(f"Classic agent {agent.name} failed: {e}", file=sys.stderr)
-        
-        # Enhanced agents
-        for agent in self.enhanced_agents:
-            try:
-                signal = agent.analyze_enhanced(enhanced_data)
-                agent_signals.append(signal)
-            except Exception as e:
-                print(f"Enhanced agent {agent.name} failed: {e}", file=sys.stderr)
+                print(f"Agent {agent.name} failed: {e}", file=sys.stderr)
         
         # Calculate consensus
         bullish_count = sum(1 for s in agent_signals if s.signal == "bullish")
@@ -481,46 +512,24 @@ class EnhancedAIHedgeFund:
         else:
             recommendation = "Avoid or reduce position"
         
-        # Build enhanced data dict for output
-        enhanced_data_dict = {
-            "earnings": {
-                "actual_eps": enhanced_data.earnings.actual_eps,
-                "expected_eps": enhanced_data.earnings.expected_eps,
-                "surprise_pct": enhanced_data.earnings.surprise_pct,
-                "beats_last_4q": enhanced_data.earnings.beats_last_4q,
-            },
-            "analyst": {
-                "consensus": enhanced_data.analyst.consensus_rating,
-                "num_analysts": enhanced_data.analyst.num_analysts,
-                "price_target": enhanced_data.analyst.price_target,
-                "upside_pct": enhanced_data.analyst.upside_pct,
-            },
-            "dividend": {
-                "yield_pct": enhanced_data.dividend.yield_pct,
-                "payout_ratio": enhanced_data.dividend.payout_ratio,
-                "payout_status": enhanced_data.dividend.payout_status,
-                "income_rating": enhanced_data.dividend.income_rating,
-            },
-            "macro": {
-                "vix": enhanced_data.macro.vix_level,
-                "vix_status": enhanced_data.macro.vix_status,
-                "market_regime": enhanced_data.macro.market_regime,
-                "spy_trend_10d": enhanced_data.macro.spy_trend_10d,
-            },
-        }
-        
         return ConsensusResult(
             ticker=ticker,
             signal=consensus_signal,
             confidence=consensus_confidence,
             agreement=f"{bullish_count}/{total} bullish, {bearish_count}/{total} bearish",
             agent_signals=agent_signals,
-            key_risks=key_risks,
+            key_risks=key_risks[:5],  # Top 5 risks
             recommendation=recommendation,
-            analysis_date=datetime.now().isoformat(),
-            enhanced_data=enhanced_data_dict
+            analysis_date=datetime.now().isoformat()
         )
-
+    
+    def analyze_multiple(self, tickers: List[str]) -> List[ConsensusResult]:
+        """Analyze multiple stocks"""
+        results = []
+        for ticker in tickers:
+            result = self.analyze(ticker)
+            results.append(result)
+        return results
 
 def format_output(result: ConsensusResult, detailed: bool = False) -> str:
     """Format analysis result for display"""
@@ -528,52 +537,13 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
     
     # Header
     signal_emoji = {"bullish": "🟢", "bearish": "🔴", "neutral": "🟡"}[result.signal]
-    lines.append(f"\n{'='*70}")
+    lines.append(f"\n{'='*60}")
     lines.append(f"{signal_emoji} {result.ticker} Analysis - {result.signal.upper()} ({result.confidence}% confidence)")
-    lines.append(f"{'='*70}")
+    lines.append(f"{'='*60}")
     lines.append(f"Agreement: {result.agreement}")
     date_str = result.analysis_date[:10] if result.analysis_date else "N/A"
     lines.append(f"Date: {date_str}")
     lines.append("")
-    
-    # Enhanced Data Summary
-    if result.enhanced_data:
-        lines.append("📊 Enhanced Data Summary:")
-        lines.append("-" * 40)
-        
-        # Earnings
-        earnings = result.enhanced_data.get("earnings", {})
-        if earnings.get("surprise_pct") is not None:
-            surprise = earnings["surprise_pct"]
-            emoji = "📈" if surprise > 0 else "📉"
-            lines.append(f"  {emoji} Earnings Surprise: {surprise:+.1f}%")
-        if earnings.get("beats_last_4q") is not None:
-            lines.append(f"  📊 Beat Rate: {earnings['beats_last_4q']}/4 quarters")
-        
-        # Analyst
-        analyst = result.enhanced_data.get("analyst", {})
-        if analyst.get("num_analysts", 0) > 0:
-            lines.append(f"  🎯 Analysts: {analyst['num_analysts']} | Consensus: {analyst.get('consensus', 'N/A')}")
-        if analyst.get("upside_pct") is not None:
-            upside = analyst["upside_pct"]
-            emoji = "🚀" if upside > 10 else "📊" if upside > 0 else "⚠️"
-            lines.append(f"  {emoji} Upside to Target: {upside:+.1f}%")
-        
-        # Dividend
-        dividend = result.enhanced_data.get("dividend", {})
-        if dividend.get("yield_pct"):
-            lines.append(f"  💰 Dividend: {dividend['yield_pct']:.2f}% ({dividend.get('income_rating', 'N/A')})")
-        
-        # Macro
-        macro = result.enhanced_data.get("macro", {})
-        if macro.get("vix"):
-            vix_status = macro.get("vix_status", "unknown")
-            emoji = {"calm": "😌", "elevated": "😐", "fear": "😰", "panic": "😱"}.get(vix_status, "❓")
-            lines.append(f"  {emoji} VIX: {macro['vix']:.1f} ({vix_status})")
-        if macro.get("market_regime"):
-            lines.append(f"  📈 Market: {macro['market_regime'].upper()}")
-        
-        lines.append("")
     
     # Agent details
     if detailed:
@@ -599,13 +569,12 @@ def format_output(result: ConsensusResult, detailed: bool = False) -> str:
     
     # Recommendation
     lines.append(f"💡 Recommendation: {result.recommendation}")
-    lines.append(f"{'='*70}\n")
+    lines.append(f"{'='*60}\n")
     
     return "\n".join(lines)
 
-
 def main():
-    parser = argparse.ArgumentParser(description="AI Hedge Fund Stock Analysis - Enhanced Edition")
+    parser = argparse.ArgumentParser(description="AI Hedge Fund Stock Analysis")
     parser.add_argument("ticker", help="Stock ticker symbol(s), comma-separated for multiple")
     parser.add_argument("--detailed", "-d", action="store_true", help="Show detailed agent reasoning")
     parser.add_argument("--json", "-j", action="store_true", help="Output as JSON")
@@ -617,7 +586,7 @@ def main():
     tickers = [t.strip().upper() for t in args.ticker.split(",")]
     
     # Initialize hedge fund
-    hedge_fund = EnhancedAIHedgeFund()
+    hedge_fund = AIHedgeFund()
     
     # Run analysis
     if len(tickers) == 1:
@@ -630,37 +599,38 @@ def main():
                 "signal": result.signal,
                 "confidence": result.confidence,
                 "agreement": result.agreement,
+                "key_risks": result.key_risks,
                 "recommendation": result.recommendation,
-                "agent_signals": [
+                "analysis_date": result.analysis_date,
+                "agents": [
                     {
-                        "agent": s.agent_name,
+                        "name": s.agent_name,
                         "signal": s.signal,
                         "confidence": s.confidence,
                         "reasoning": s.reasoning
                     }
                     for s in result.agent_signals
-                ],
-                "enhanced_data": result.enhanced_data,
+                ]
             }
             print(json.dumps(result_dict, indent=2))
         else:
             print(format_output(result, detailed=args.detailed))
     else:
-        # Compare mode
-        results = []
-        for ticker in tickers:
-            result = hedge_fund.analyze(ticker)
-            results.append(result)
-            print(format_output(result, detailed=False))
+        # Multiple tickers
+        results = hedge_fund.analyze_multiple(tickers)
         
-        # Summary comparison
-        print("\n" + "="*70)
-        print("📊 COMPARISON SUMMARY")
-        print("="*70)
-        for r in results:
-            emoji = {"bullish": "🟢", "bearish": "🔴", "neutral": "🟡"}[r.signal]
-            print(f"{emoji} {r.ticker}: {r.signal.upper()} ({r.confidence}%) - {r.recommendation}")
-
+        if args.compare:
+            # Comparison table
+            print("\n" + "="*80)
+            print(f"{'Ticker':<10} {'Signal':<10} {'Confidence':<12} {'Bullish':<10} {'Recommendation'}")
+            print("="*80)
+            for r in results:
+                bullish = int(r.agreement.split("/")[0])
+                print(f"{r.ticker:<10} {r.signal.upper():<10} {r.confidence}%{'':<6} {bullish} agents{'':<3} {r.recommendation[:30]}")
+            print("="*80 + "\n")
+        else:
+            for result in results:
+                print(format_output(result, detailed=args.detailed))
 
 if __name__ == "__main__":
     main()
