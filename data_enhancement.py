@@ -149,17 +149,23 @@ class EnhancedDataFetcher:
             # Get earnings history
             earnings_hist = stock.earnings_dates
             if earnings_hist is not None and not earnings_hist.empty:
-                # Get most recent earnings
-                recent = earnings_hist.head(1)
-                if not recent.empty:
-                    earnings.actual_eps = recent.get('Reported EPS', [None])[0]
-                    earnings.expected_eps = recent.get('EPS Estimate', [None])[0]
+                # Filter out rows with missing data (future dates have NaN for Reported EPS)
+                valid_earnings = earnings_hist.dropna(subset=['Reported EPS', 'EPS Estimate'])
+                
+                if not valid_earnings.empty:
+                    # Get most recent earnings with actual data
+                    recent = valid_earnings.iloc[0]
+                    earnings.actual_eps = recent.get('Reported EPS')
+                    earnings.expected_eps = recent.get('EPS Estimate')
                     
                     if earnings.actual_eps and earnings.expected_eps:
                         earnings.surprise_pct = ((earnings.actual_eps - earnings.expected_eps) 
                                                 / abs(earnings.expected_eps) * 100)
                         # Score: positive surprise = bullish
-                        if earnings.surprise_pct > 5:
+                        if earnings.surprise_pct > 10:
+                            earnings.surprise_score = 90
+                            earnings.explanation = f"Huge beat: +{earnings.surprise_pct:.1f}%"
+                        elif earnings.surprise_pct > 5:
                             earnings.surprise_score = 85
                             earnings.explanation = f"Strong beat: +{earnings.surprise_pct:.1f}%"
                         elif earnings.surprise_pct > 0:
@@ -172,10 +178,10 @@ class EnhancedDataFetcher:
                             earnings.surprise_score = 25
                             earnings.explanation = f"Big miss: {earnings.surprise_pct:.1f}%"
             
-            # Get historical beat rate
-            if earnings_hist is not None and len(earnings_hist) >= 4:
+            # Get historical beat rate (use valid earnings only)
+            if not valid_earnings.empty and len(valid_earnings) >= 4:
                 beats = 0
-                for _, row in earnings_hist.head(4).iterrows():
+                for _, row in valid_earnings.head(4).iterrows():
                     actual = row.get('Reported EPS')
                     expected = row.get('EPS Estimate')
                     if actual and expected and actual > expected:
@@ -183,7 +189,7 @@ class EnhancedDataFetcher:
                 earnings.beats_last_4q = beats
                 
         except Exception as e:
-            earnings.explanation = "Earnings data unavailable"
+            earnings.explanation = f"Earnings data unavailable: {str(e)[:50]}"
         
         return earnings
     
