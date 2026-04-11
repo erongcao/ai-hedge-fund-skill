@@ -1,11 +1,18 @@
 #!/usr/bin/env python3
 """
-AI Hedge Fund Skill - Enhanced Edition v2.1
+AI Hedge Fund Skill - Enhanced Edition v2.3
 Integrates features from stock-analysis skill:
 - Earnings surprise analysis
 - Analyst consensus
 - Macro environment
 - Dividend analysis
+
+v2.3 更新：
+- 15位投资大师全部使用女娲蒸馏思维框架
+- 新增：Ray Dalio, Bill Ackman, Carl Icahn, Jim Simons, Stanley Druckenmiller,
+        Ken Griffin, Steve Cohen, George Soros, Mohnish Pabrai, David Einhorn,
+        Daniel Loeb, Jeff Yass
+- 更新：Warren Buffett, Ben Graham, Cathie Wood
 """
 
 import os
@@ -23,6 +30,44 @@ from base import AgentSignal, ConsensusResult, InvestmentAgent
 from data_enhancement import EnhancedDataFetcher, EnhancedStockData
 from enhanced_agents import EarningsAgent, AnalystConsensusAgent, MacroAgent, DividendAgent, FinancialHealthAgent
 
+# Import OKX data adapter for crypto
+try:
+    from okx_data_adapter import OKXDataAdapter
+    OKX_AVAILABLE = True
+except ImportError as e:
+    OKX_AVAILABLE = False
+    print(f"Warning: OKX adapter not available: {e}", file=sys.stderr)
+
+# Import distilled investor frameworks (女娲蒸馏)
+try:
+    from buffett_distilled import WarrenBuffettDistilled
+    from dalio_distilled import RayDalioDistilled
+    from ackman_distilled import BillAckmanDistilled
+    from icahn_distilled import CarlIcahnDistilled
+    from simons_distilled import JimSimonsDistilled
+    from druckenmiller_distilled import StanleyDruckenmillerDistilled
+    from griffin_distilled import KenGriffinDistilled
+    from cohen_distilled import SteveCohenDistilled
+    from soros_distilled import GeorgeSorosDistilled
+    from pabrai_distilled import MohnishPabraiDistilled
+    from einhorn_distilled import DavidEinhornDistilled
+    from loeb_distilled import DanielLoebDistilled
+    from yass_distilled import JeffYassDistilled
+    from ben_graham_distilled import BenGrahamDistilled
+    from cathie_wood_distilled import CathieWoodDistilled
+    # Futures trading masters
+    from dennis_distilled import RichardDennisDistilled
+    from jones_pt_distilled import PaulTudorJonesDistilled
+    from seykota_distilled import EdSeykotaDistilled
+    from kovner_distilled import BruceKovnerDistilled
+    from williams_l_distilled import LarryWilliamsDistilled
+    from livermore_distilled import JesseLivermoreDistilled
+    from rogers_jim_distilled import JimRogersDistilled
+    ALL_DISTILLED = True
+except ImportError as e:
+    ALL_DISTILLED = False
+    print(f"Warning: Some distilled frameworks not available: {e}", file=sys.stderr)
+
 # Try to import optional dependencies
 try:
     import yfinance as yf
@@ -38,17 +83,60 @@ except ImportError:
 
 
 class WarrenBuffettAgent(InvestmentAgent):
-    """Warren Buffett value investing analysis"""
+    """
+    Warren Buffett 价值投资分析 - 女娲蒸馏版
+    
+    核心思维框架：
+    1. 护城河优先（Economic Moat）- 没有护城河的公司不看
+    2. ROE > 15% 是好公司的底线
+    3. 低债务 + 高现金流 = 财务健康
+    4. 合理价格买优秀公司 > 便宜价格买普通公司
+    5. 能力圈内投资，不懂不买
+    
+    反模式：
+    - 不会买没有护城河的公司
+    - 不会付过高的溢价
+    - 不会盲目追随市场
+    """
     
     def __init__(self):
         super().__init__(
             "Warren Buffett",
             "Wonderful companies at fair prices. Focus on moat, ROE, and margin of safety."
         )
+        # 使用女娲蒸馏的思维框架
+        self.distilled = WarrenBuffettDistilled() if ALL_DISTILLED else None
     
     def analyze(self, data: Dict) -> AgentSignal:
+        # 使用蒸馏后的思维框架（如果可用）
+        if self.distilled:
+            return self._analyze_distilled(data)
+        else:
+            return self._analyze_legacy(data)
+    
+    def _analyze_distilled(self, data: Dict) -> AgentSignal:
+        """使用女娲蒸馏的 Buffett 思维框架分析"""
+        result = self.distilled.analyze(data)
+        
+        return AgentSignal(
+            agent_name=self.name,
+            signal=result["signal"],
+            confidence=result["confidence"],
+            reasoning="; ".join(result["reasoning"]) if result["reasoning"] else "Mixed signals",
+            key_metrics={
+                "moat": result["checklist"].get("has_moat", False),
+                "roe": result["checklist"].get("roe", 0),
+                "roic": result["checklist"].get("roic", 0),
+                "debt": result["checklist"].get("debt_to_equity", 0),
+                "circle_of_competence": result["checklist"].get("within_circle_of_competence", True),
+                "key_insights": result["key_insights"],
+                "red_flags": result["red_flags"]
+            }
+        )
+    
+    def _analyze_legacy(self, data: Dict) -> AgentSignal:
+        """备用：传统打分系统"""
         score = 0
-        max_score = 100
         reasoning_parts = []
         
         # ROE analysis (most important for Buffett)
@@ -62,40 +150,15 @@ class WarrenBuffettAgent(InvestmentAgent):
         else:
             reasoning_parts.append("Weak or missing ROE")
         
-        # Debt levels (with industry context)
+        # Debt levels
         debt = data.get("debt_to_equity", 0)
-        sector = data.get("sector", "")
-        industry = data.get("industry", "")
-        
-        try:
-            from industry_rules import evaluate_leverage_in_context
-            leverage_eval = evaluate_leverage_in_context(debt, sector, industry)
-            
-            if leverage_eval.get('is_concerning'):
-                score -= 15
-                reasoning_parts.append(f"Excessive leverage for {leverage_eval.get('context', 'sector')}")
-                risks.append(f"High debt burden (D/E {debt:.2f}x)")
-            elif leverage_eval.get('note'):
-                # High leverage but normal for this industry
-                score += 5
-                reasoning_parts.append(f"Strategic leverage for {leverage_eval.get('context', 'industry')}")
-            elif debt and debt < 0.5:
-                score += 15
-                reasoning_parts.append("Conservative debt levels")
-            elif debt and debt < 1.0:
-                score += 5
-            else:
-                reasoning_parts.append("High debt levels")
-                risks.append(f"Elevated debt (D/E {debt:.2f}x)")
-        except ImportError:
-            # Fallback to standard evaluation
-            if debt and debt < 0.5:
-                score += 15
-                reasoning_parts.append("Conservative debt levels")
-            elif debt and debt < 1.0:
-                score += 5
-            else:
-                reasoning_parts.append("High debt levels")
+        if debt and debt < 0.5:
+            score += 20
+            reasoning_parts.append("Conservative debt levels")
+        elif debt and debt < 1.0:
+            score += 10
+        else:
+            reasoning_parts.append("High debt levels")
         
         # Operating margin
         margin = data.get("operating_margin", 0)
@@ -104,13 +167,6 @@ class WarrenBuffettAgent(InvestmentAgent):
             reasoning_parts.append("Strong operating margins")
         elif margin and margin > 0.10:
             score += 10
-        
-        # Price vs moving averages (trend)
-        price = data.get("current_price", 0)
-        avg200 = data.get("avg_200", 0)
-        if price and avg200 and price > avg200:
-            score += 10
-            reasoning_parts.append("Price above 200-day MA (uptrend)")
         
         # Valuation check
         pe = data.get("pe_ratio", 0)
@@ -121,14 +177,6 @@ class WarrenBuffettAgent(InvestmentAgent):
             score += 10
         elif pe:
             reasoning_parts.append(f"High P/E of {pe:.1f}")
-        else:
-            reasoning_parts.append("P/E data not available")
-        
-        # Market cap (Buffett prefers large caps)
-        market_cap = data.get("market_cap", 0)
-        if market_cap and market_cap > 100e9:
-            score += 10
-            reasoning_parts.append("Large cap - stable business")
         
         # Clamp score
         score = max(10, min(95, score))
@@ -415,162 +463,528 @@ class CathieWoodAgent(InvestmentAgent):
 
 
 class EnhancedAIHedgeFund:
-    """Enhanced AI Hedge Fund with additional agents"""
+    """Enhanced AI Hedge Fund with all 18 investor agents"""
     
     def __init__(self):
         self.data_fetcher = EnhancedDataFetcher()
         
-        # Classic agents
-        self.classic_agents: List[InvestmentAgent] = [
-            WarrenBuffettAgent(),
-            BenGrahamAgent(),
+        # Technical analysis agents (Phase 1)
+        self.technical_agents: List[InvestmentAgent] = [
             TechnicalAnalyst(),
             RiskManager(),
-            CathieWoodAgent(),
         ]
         
-        # Enhanced agents (from stock-analysis)
+        # Enhanced agents (from stock-analysis) (Phase 1)
         self.enhanced_agents = [
             EarningsAgent(),
             AnalystConsensusAgent(),
             MacroAgent(),
             DividendAgent(),
-            FinancialHealthAgent(),  # NEW: Financial health analysis
+            FinancialHealthAgent(),
+        ]
+        
+        # Classic investor masters (Phase 2: Warren Buffett, Ben Graham, Cathie Wood)
+        self.classic_agents: List[InvestmentAgent] = [
+            WarrenBuffettAgent(),       # v2.2: distilled
+            BenGrahamAgent(),           # v2.3: distilled
+            CathieWoodAgent(),          # v2.3: distilled
+        ]
+        
+        # Distilled macro/activist agents (Phase 2)
+        self.macro_agents: List[InvestmentAgent] = [
+            RayDalioAgent(),            # All Weather
+            BillAckmanAgent(),         # High Conviction Activist
+            CarlIcahnAgent(),           # Corporate Activism
+            JimSimonsAgent(),           # Quantitative
+            StanleyDruckenmillerAgent(), # Global Macro
+            KenGriffinAgent(),          # Market Neutral
+            SteveCohenAgent(),          # Fundamental + Trading
+            GeorgeSorosAgent(),         # Reflexivity
+            MohnishPabraiAgent(),       # Deep Value
+            DavidEinhornAgent(),        # Value + Long/Short
+            DanielLoebAgent(),          # Activist
+            JeffYassAgent(),            # Quantitative + Options
+        ]
+        
+        # Futures trading masters (v2.4 new)
+        self.futures_agents: List[InvestmentAgent] = [
+            RichardDennisAgent(),       # Turtle Trading
+            PaulTudorJonesAgent(),     # Macro + Risk Management
+            EdSeykotaAgent(),          # Trend Following + Systems
+            BruceKovnerAgent(),         # Macro + Technical + Risk
+            LarryWilliamsAgent(),       # Overbought/Oversold
+            JesseLivermoreAgent(),     # Market Timing + Key Levels
+            JimRogersAgent(),          # Global Macro + Commodities
         ]
     
+    @property
+    def all_agents(self) -> List[InvestmentAgent]:
+        """Get all agents combined"""
+        return self.technical_agents + self.enhanced_agents + self.classic_agents + self.macro_agents + self.futures_agents
+    
+    def get_agent_count(self) -> int:
+        return len(self.all_agents)
+    
     def analyze(self, ticker: str, detailed: bool = False) -> ConsensusResult:
-        """Run all agents and generate consensus"""
+        """
+        两阶段分析流程 (v2.4 新架构):
         
-        # Fetch enhanced data
-        enhanced_data = self.data_fetcher.get_enhanced_data(ticker)
+        Phase 1: Technical Analyst + Risk Manager + Enhanced Agents 分析原始数据
+        Phase 2: 所有投资大师根据 Phase 1 结果 + 原始数据做决策
         
-        # Convert to dict for classic agents
-        data_dict = {
-            "current_price": enhanced_data.current_price,
-            "pe_ratio": enhanced_data.pe_ratio,
-            "pb_ratio": enhanced_data.pb_ratio,
-            "beta": enhanced_data.beta,
-            "roe": enhanced_data.roe,
-            "debt_to_equity": enhanced_data.debt_to_equity,
-            "operating_margin": enhanced_data.operating_margin,
-            "current_ratio": enhanced_data.current_ratio,
-            "sector": enhanced_data.sector,
-            "industry": enhanced_data.industry,  # NEW: for industry analysis
-            "market_cap": enhanced_data.market_cap,
-            "avg_50": enhanced_data.avg_50,
-            "avg_200": enhanced_data.avg_200,
-            "rsi": enhanced_data.rsi,
-        }
+        支持资产类型:
+        - 股票/ETF: 使用 Yahoo Finance
+        - 数字货币: 使用 OKX API (如 BTC-USDT, ETH-USDT)
+        """
         
-        # Run all agents
-        agent_signals = []
+        # ============================================================
+        # 数据获取: 根据 ticker 类型选择数据源
+        # ============================================================
+        is_crypto = self._is_crypto_ticker(ticker)
         
-        # Classic agents
-        for agent in self.classic_agents:
-            try:
-                signal = agent.analyze(data_dict)
-                agent_signals.append(signal)
-            except Exception as e:
-                print(f"Classic agent {agent.name} failed: {e}", file=sys.stderr)
-        
-        # Enhanced agents
-        for agent in self.enhanced_agents:
-            try:
-                signal = agent.analyze_enhanced(enhanced_data)
-                agent_signals.append(signal)
-            except Exception as e:
-                print(f"Enhanced agent {agent.name} failed: {e}", file=sys.stderr)
-        
-        # Calculate consensus
-        bullish_count = sum(1 for s in agent_signals if s.signal == "bullish")
-        bearish_count = sum(1 for s in agent_signals if s.signal == "bearish")
-        neutral_count = sum(1 for s in agent_signals if s.signal == "neutral")
-        total = len(agent_signals)
-        
-        # Weighted confidence calculation
-        total_confidence = sum(s.confidence for s in agent_signals)
-        avg_confidence = total_confidence / total if total > 0 else 50
-        
-        # Determine consensus signal
-        if bullish_count > bearish_count and bullish_count > neutral_count:
-            consensus_signal = "bullish"
-            consensus_confidence = int(avg_confidence * (bullish_count / total))
-        elif bearish_count > bullish_count and bearish_count > neutral_count:
-            consensus_signal = "bearish"
-            consensus_confidence = int(avg_confidence * (bearish_count / total))
+        if is_crypto:
+            # 使用 OKX API 获取数字货币数据
+            if not OKX_AVAILABLE:
+                raise ValueError("OKX adapter not available")
+            
+            okx_adapter = OKXDataAdapter()
+            crypto_data = okx_adapter.get_complete_analysis_data(ticker, bar="4H")
+            
+            # 转换为统一格式
+            data_dict = self._convert_crypto_to_data_dict(crypto_data)
+            enhanced_data = None  # Crypto 不需要 EnhancedStockData
+            
         else:
-            consensus_signal = "neutral"
-            consensus_confidence = int(avg_confidence * 0.7)
+            # 使用 Yahoo Finance 获取股票数据
+            enhanced_data = self.data_fetcher.get_enhanced_data(ticker)
+            data_dict = self._convert_stock_to_data_dict(enhanced_data)
         
-        # Collect risks
+        # ============================================================
+        # PHASE 1: Technical Analyst + Risk Manager + Enhanced Agents
+        # ============================================================
+        phase1_signals = []
+        
+        # Run Technical Analyst (技术分析: RSI, MACD, 均线, 成交量)
+        try:
+            tech_agent = self.technical_agents[0]  # Technical Analyst
+            tech_signal = tech_agent.analyze(data_dict)
+            phase1_signals.append(tech_signal)
+        except Exception as e:
+            print(f"Technical Analyst failed: {e}", file=sys.stderr)
+        
+        # Run Risk Manager (风险评估: Beta, 波动率, 仓位建议)
+        try:
+            risk_agent = self.technical_agents[1]  # Risk Manager
+            risk_signal = risk_agent.analyze(data_dict)
+            phase1_signals.append(risk_signal)
+        except Exception as e:
+            print(f"Risk Manager failed: {e}", file=sys.stderr)
+        
+        # Run Enhanced Agents (5位: Earnings, Analyst, Macro, Dividend, Financial)
+        if not is_crypto:
+            # 股票有完整的增强分析
+            for agent in self.enhanced_agents:
+                try:
+                    signal = agent.analyze_enhanced(enhanced_data)
+                    phase1_signals.append(signal)
+                except Exception as e:
+                    print(f"Enhanced agent {agent.name} failed: {e}", file=sys.stderr)
+        else:
+            # Crypto 简化增强分析 - 添加基本的市场信号
+            phase1_signals.append(self._create_crypto_enhanced_signal(crypto_data))
+        
+        # Compile Phase 1 analysis summary
+        phase1_summary = self._compile_phase1_summary(phase1_signals, enhanced_data, is_crypto, crypto_data if is_crypto else None)
+        
+        # ============================================================
+        # PHASE 2: 投资大师 (22位) 根据 Phase 1 结果做决策
+        # ============================================================
+        phase2_signals = []
+        
+        # Investor masters list (Classic + Macro + Futures)
+        investor_masters = (
+            self.classic_agents +  # Buffett, Graham, Wood
+            self.macro_agents +  # 12位宏观/维权大师
+            self.futures_agents  # 7位期货大师
+        )
+        
+        # Extended data dict for masters
+        master_data = data_dict.copy()
+        master_data["phase1_summary"] = phase1_summary
+        master_data["phase1_signals"] = phase1_signals
+        master_data["is_crypto"] = is_crypto
+        
+        # Run investor masters
+        for agent in investor_masters:
+            try:
+                signal = agent.analyze(master_data)
+                phase2_signals.append(signal)
+            except Exception as e:
+                print(f"Investor master {agent.name} failed: {e}", file=sys.stderr)
+                phase2_signals.append(AgentSignal(
+                    agent_name=agent.name,
+                    signal="neutral",
+                    confidence=50,
+                    reasoning="Analysis unavailable"
+                ))
+        
+        # ============================================================
+        # 最终汇总
+        # ============================================================
+        all_signals = phase1_signals + phase2_signals
+        
+        # Calculate consensus (基于投资大师 only)
+        bullish = sum(1 for s in phase2_signals if s.signal == "bullish")
+        bearish = sum(1 for s in phase2_signals if s.signal == "bearish")
+        neutral = sum(1 for s in phase2_signals if s.signal == "neutral")
+        total_investors = len(phase2_signals)
+        
+        total_conf = sum(s.confidence for s in phase2_signals)
+        avg_conf = total_conf / total_investors if total_investors > 0 else 50
+        
+        if bullish > bearish and bullish > neutral:
+            final_signal = "bullish"
+            final_conf = int(avg_conf * (bullish / total_investors))
+        elif bearish > bullish and bearish > neutral:
+            final_signal = "bearish"
+            final_conf = int(avg_conf * (bearish / total_investors))
+        else:
+            final_signal = "neutral"
+            final_conf = int(avg_conf * 0.7)
+        
+        # Risks from Phase 2 signals
         key_risks = []
-        for signal in agent_signals:
-            if signal.key_metrics and "risks" in signal.key_metrics:
-                key_risks.extend(signal.key_metrics["risks"])
+        for s in phase2_signals:
+            if s.key_metrics:
+                if "red_flags" in s.key_metrics:
+                    key_risks.extend(s.key_metrics["red_flags"])
         if not key_risks:
-            key_risks = ["Market volatility", "Sector risks"]
+            key_risks = ["Market volatility", "Cryptocurrency risk"] if is_crypto else ["Market volatility", "Sector uncertainty"]
+        key_risks = list(set(key_risks))[:5]
         
-        # Position sizing recommendation
-        if consensus_signal == "bullish" and consensus_confidence > 70:
+        # Recommendation
+        if final_signal == "bullish" and final_conf > 70:
             recommendation = "Consider 5-10% position size"
-        elif consensus_signal == "bullish":
+        elif final_signal == "bullish":
             recommendation = "Consider 3-5% position size"
-        elif consensus_signal == "neutral":
+        elif final_signal == "neutral":
             recommendation = "Watchlist candidate, no position"
         else:
             recommendation = "Avoid or reduce position"
         
-        # Build enhanced data dict for output
-        enhanced_data_dict = {
-            "earnings": {
-                "actual_eps": enhanced_data.earnings.actual_eps,
-                "expected_eps": enhanced_data.earnings.expected_eps,
-                "surprise_pct": enhanced_data.earnings.surprise_pct,
-                "beats_last_4q": enhanced_data.earnings.beats_last_4q,
-            },
-            "analyst": {
-                "consensus": enhanced_data.analyst.consensus_rating,
-                "num_analysts": enhanced_data.analyst.num_analysts,
-                "price_target": enhanced_data.analyst.price_target,
-                "upside_pct": enhanced_data.analyst.upside_pct,
-            },
-            "dividend": {
-                "yield_pct": enhanced_data.dividend.yield_pct,
-                "payout_ratio": enhanced_data.dividend.payout_ratio,
-                "payout_status": enhanced_data.dividend.payout_status,
-                "income_rating": enhanced_data.dividend.income_rating,
-            },
-            "macro": {
-                "vix": enhanced_data.macro.vix_level,
-                "vix_status": enhanced_data.macro.vix_status,
-                "market_regime": enhanced_data.macro.market_regime,
-                "spy_trend_10d": enhanced_data.macro.spy_trend_10d,
-            },
-            "financials": {
-                "operating_margin": enhanced_data.financials.operating_margin,
-                "gross_margin": enhanced_data.financials.gross_margin,
-                "debt_to_equity": enhanced_data.financials.debt_to_equity,
-                "return_on_equity": enhanced_data.financials.return_on_equity,
-                "return_on_assets": enhanced_data.financials.return_on_assets,
-                "free_cash_flow": enhanced_data.financials.free_cash_flow,
-                "revenue_growth_yoy": enhanced_data.financials.revenue_growth_yoy,
-                "financial_health_score": enhanced_data.financials.financial_health_score,
-            },
-            "sector": enhanced_data.sector,
-            "industry": enhanced_data.industry,
-        }
+        # Build enhanced_data output
+        enhanced_data_dict = self._build_crypto_data_output(crypto_data) if is_crypto else self._build_enhanced_data_output(enhanced_data)
         
         return ConsensusResult(
             ticker=ticker,
-            signal=consensus_signal,
-            confidence=consensus_confidence,
-            agreement=f"{bullish_count}/{total} bullish, {bearish_count}/{total} bearish",
-            agent_signals=agent_signals,
+            signal=final_signal,
+            confidence=final_conf,
+            agreement=f"{bullish}/{total_investors} bullish, {bearish}/{total_investors} bearish",
+            agent_signals=all_signals,
             key_risks=key_risks,
             recommendation=recommendation,
             analysis_date=datetime.now().isoformat(),
             enhanced_data=enhanced_data_dict
         )
+    
+    def _is_crypto_ticker(self, ticker: str) -> bool:
+        """判断是否是数字货币 ticker"""
+        crypto_patterns = ['-USDT', '-BTC', '-ETH', '-USD', 'BTC', 'ETH']
+        ticker_upper = ticker.upper()
+        return any(pattern in ticker_upper for pattern in crypto_patterns)
+    
+    def _convert_crypto_to_data_dict(self, crypto_data: Dict) -> Dict:
+        """将 OKX 数据转换为统一格式"""
+        return {
+            "current_price": crypto_data.get("current_price", 0),
+            "pe_ratio": 0,  # Crypto 没有 P/E
+            "pb_ratio": 0,  # Crypto 没有 P/B
+            "beta": crypto_data.get("beta", 1.5),  # Crypto 高 beta
+            "roe": 0,  # Crypto 没有 ROE
+            "roic": 0,
+            "debt_to_equity": 0,
+            "operating_margin": 0,
+            "current_ratio": 0,
+            "sector": "Cryptocurrency",
+            "industry": "Digital Assets",
+            "market_cap": 0,
+            "avg_50": crypto_data.get("MA50", 0) if crypto_data.get("MA50") else crypto_data.get("MA20", 0),
+            "avg_200": crypto_data.get("MA200", 0) if crypto_data.get("MA200") else 0,
+            "rsi": crypto_data.get("RSI", 50),
+            "macd": crypto_data.get("MACD", 0),
+            "signal_line": crypto_data.get("MACD_Signal", 0),
+            "volume": crypto_data.get("volume", 0),
+            "avg_volume": crypto_data.get("volume_ma5", 0),
+            "high_52w": crypto_data.get("high_24h", 0),
+            "low_52w": crypto_data.get("low_24h", 0),
+            # Crypto 特有字段
+            "atr": crypto_data.get("ATR", 0),
+            "atr_percent": crypto_data.get("atr_percent", 5),
+            "trend_direction": crypto_data.get("trend_direction", "neutral"),
+            "ma_cross_gold": crypto_data.get("ma_cross_gold", False),
+            "ma_cross_death": crypto_data.get("ma_cross_death", False),
+            "volatility_20d": crypto_data.get("volatility_20d", 0),
+            "change_24h_pct": crypto_data.get("change_24h_pct", 0),
+            "volume_ratio": crypto_data.get("volume_ratio", 1),
+            # Technical Analyst 需要的字段
+            "ma_20": crypto_data.get("MA20", 0),
+            "ma_50": crypto_data.get("MA50", 0),
+            "high": crypto_data.get("high_price", 0),
+            "low": crypto_data.get("low_price", 0),
+            "close": crypto_data.get("current_price", 0),
+            # Risk Manager 需要的字段
+            "beta": crypto_data.get("beta", 1.5),
+            # Futures masters 需要的字段
+            "breakout_20d_high": crypto_data.get("current_price", 0) > crypto_data.get("resistance_20d", 0) if crypto_data.get("resistance_20d") else False,
+            "breakout_20d_low": crypto_data.get("current_price", 0) < crypto_data.get("support_20d", 0) if crypto_data.get("support_20d") else False,
+        }
+    
+    def _convert_stock_to_data_dict(self, enhanced_data) -> Dict:
+        """将 Yahoo Finance 数据转换为统一格式"""
+        return {
+            "current_price": enhanced_data.current_price,
+            "pe_ratio": enhanced_data.pe_ratio,
+            "pb_ratio": enhanced_data.pb_ratio,
+            "beta": enhanced_data.beta,
+            "roe": enhanced_data.roe,
+            "roic": enhanced_data.roe,
+            "debt_to_equity": enhanced_data.debt_to_equity,
+            "operating_margin": enhanced_data.operating_margin,
+            "current_ratio": enhanced_data.current_ratio,
+            "sector": enhanced_data.sector,
+            "industry": enhanced_data.industry,
+            "market_cap": enhanced_data.market_cap,
+            "avg_50": enhanced_data.avg_50,
+            "avg_200": enhanced_data.avg_200,
+            "rsi": enhanced_data.rsi,
+            "macd": getattr(enhanced_data, 'macd', None),
+            "signal_line": getattr(enhanced_data, 'signal_line', None),
+            "volume": getattr(enhanced_data, 'volume', None),
+            "avg_volume": getattr(enhanced_data, 'avg_volume', None),
+            "high_52w": getattr(enhanced_data, 'high_52w', None),
+            "low_52w": getattr(enhanced_data, 'low_52w', None),
+        }
+    
+    def _create_crypto_enhanced_signal(self, crypto_data: Dict) -> AgentSignal:
+        """为 Crypto 创建简化版的增强分析信号"""
+        signals = []
+        score = 50
+        
+        # 趋势信号
+        trend = crypto_data.get("trend_direction", "neutral")
+        if trend == "up":
+            score += 20
+            signals.append("上升趋势")
+        elif trend == "down":
+            score -= 20
+            signals.append("下降趋势")
+        
+        # RSI 信号
+        rsi = crypto_data.get("RSI", 50)
+        if rsi > 70:
+            score -= 10
+            signals.append("RSI 超买")
+        elif rsi < 30:
+            score += 10
+            signals.append("RSI 超卖")
+        
+        # 成交量信号
+        vol_ratio = crypto_data.get("volume_ratio", 1)
+        if vol_ratio > 1.5:
+            score += 10
+            signals.append("成交量放大")
+        
+        # MACD 信号
+        macd_hist = crypto_data.get("MACD_Hist", 0)
+        if macd_hist > 0:
+            score += 10
+            signals.append("MACD 正向")
+        else:
+            score -= 10
+            signals.append("MACD 负向")
+        
+        signal = "bullish" if score >= 60 else "bearish" if score <= 40 else "neutral"
+        
+        return AgentSignal(
+            agent_name="Crypto Market Analyst",
+            signal=signal,
+            confidence=abs(score - 50) + 50,
+            reasoning="; ".join(signals) if signals else "Neutral market conditions",
+            key_metrics={
+                "rsi": rsi,
+                "trend": trend,
+                "volume_ratio": vol_ratio,
+                "change_24h": crypto_data.get("change_24h_pct", 0)
+            }
+        )
+    
+    def _build_crypto_data_output(self, crypto_data: Dict) -> Dict:
+        """构建 Crypto 数据输出"""
+        return {
+            "asset_type": "crypto",
+            "exchange": "OKX",
+            "symbol": crypto_data.get("symbol", ""),
+            "current_price": crypto_data.get("current_price", 0),
+            "change_24h_pct": crypto_data.get("change_24h_pct", 0),
+            "high_24h": crypto_data.get("high_24h", 0),
+            "low_24h": crypto_data.get("low_24h", 0),
+            "volume_24h": crypto_data.get("volume", 0),
+            "RSI": crypto_data.get("RSI", 0),
+            "MACD": crypto_data.get("MACD", 0),
+            "MACD_Hist": crypto_data.get("MACD_Hist", 0),
+            "trend": crypto_data.get("trend_direction", "neutral"),
+            "ATR": crypto_data.get("ATR", 0),
+            "atr_percent": crypto_data.get("atr_percent", 0),
+            "MA20": crypto_data.get("MA20", 0),
+            "MA50": crypto_data.get("MA50", 0),
+            "volatility_20d": crypto_data.get("volatility_20d", 0),
+        }
+
+    def _compile_phase1_summary(self, phase1_signals: List, enhanced_data, is_crypto: bool = False, crypto_data: Dict = None) -> Dict:
+        """
+        编译 Phase 1 分析结果，供投资大师参考
+        
+        Phase 1 组成:
+        - Technical Analyst: 技术分析 (RSI, MACD, 均线, 成交量)
+        - Risk Manager: 风险评估 (Beta, 波动率, 仓位建议)
+        - Enhanced Agents: 基本面分析 (5位)
+        """
+        summary = {
+            "technical_overall": "neutral",
+            "technical_confidence": 50,
+            "technical_reasoning": "",
+            "risk_signal": "neutral",
+            "risk_confidence": 50,
+            "risk_score": 50,  # 0-100, 50=中等风险
+            "beta": None,
+            "risk_factors": [],  # 风险因素列表
+            "position_sizing": "medium",  # 建议仓位: small/medium/large
+            "earnings_signal": "neutral",
+            "analyst_signal": "neutral",
+            "macro_signal": "neutral",
+            "dividend_signal": "neutral",
+            "financial_health_signal": "neutral",
+            "summary_text": "",
+        }
+        
+        # Parse Phase 1 signals
+        signal_map = {}
+        for sig in phase1_signals:
+            signal_map[sig.agent_name.lower()] = sig
+        
+        # Technical Analyst summary
+        if "technical analyst" in signal_map:
+            ts = signal_map["technical analyst"]
+            summary["technical_overall"] = ts.signal
+            summary["technical_confidence"] = ts.confidence
+            summary["technical_reasoning"] = ts.reasoning
+        
+        # Risk Manager summary (核心职责)
+        if "risk manager" in signal_map:
+            rm = signal_map["risk manager"]
+            summary["risk_signal"] = rm.signal
+            summary["risk_confidence"] = rm.confidence
+            summary["risk_score"] = rm.confidence  # 50-100, 越高风险越大
+            
+            # 提取风险因素
+            if rm.key_metrics and "risks" in rm.key_metrics:
+                summary["risk_factors"] = rm.key_metrics["risks"]
+            
+            # 提取 Beta
+            if rm.key_metrics and "beta" in rm.key_metrics:
+                summary["beta"] = rm.key_metrics["beta"]
+            
+            # 仓位建议 (根据风险评分)
+            risk_score = summary["risk_score"]
+            if risk_score < 40:
+                summary["position_sizing"] = "large"  # 低风险可以大仓位
+            elif risk_score < 55:
+                summary["position_sizing"] = "medium"  # 中等风险
+            elif risk_score < 70:
+                summary["position_sizing"] = "small"  # 高风险小仓位
+            else:
+                summary["position_sizing"] = "very_small"  # 极高风险
+        
+        # Earnings
+        if "earnings analyst" in signal_map or "earnings" in signal_map:
+            key = "earnings analyst" if "earnings analyst" in signal_map else "earnings"
+            summary["earnings_signal"] = signal_map[key].signal
+        
+        # Analyst consensus
+        if "wall street consensus" in signal_map:
+            summary["analyst_signal"] = signal_map["wall street consensus"].signal
+        
+        # Macro
+        if "macro strategist" in signal_map:
+            summary["macro_signal"] = signal_map["macro strategist"].signal
+        
+        # Dividend
+        if "dividend investor" in signal_map:
+            summary["dividend_signal"] = signal_map["dividend investor"].signal
+        
+        # Financial health
+        if "financial health analyst" in signal_map:
+            summary["financial_health_signal"] = signal_map["financial health analyst"].signal
+        
+        # Generate comprehensive summary text
+        tech = summary["technical_overall"]
+        risk = summary["risk_signal"]
+        risk_score = summary["risk_score"]
+        beta = summary["beta"]
+        earn = summary["earnings_signal"]
+        analyst = summary["analyst_signal"]
+        macro = summary["macro_signal"]
+        fin = summary["financial_health_signal"]
+        
+        beta_str = f"Beta={beta:.1f}" if beta else "Beta=N/A"
+        summary["summary_text"] = (
+            f"Tech: {tech} | Risk: {risk}({risk_score}) {beta_str} | "
+            f"Earnings: {earn} | Analyst: {analyst} | "
+            f"Macro: {macro} | Financial: {fin}"
+        )
+        
+        return summary
+    
+    def _build_enhanced_data_output(self, enhanced_data) -> Dict:
+        """构建增强数据输出字典"""
+        return {
+            "earnings": {
+                "actual_eps": getattr(enhanced_data.earnings, 'actual_eps', None),
+                "expected_eps": getattr(enhanced_data.earnings, 'expected_eps', None),
+                "surprise_pct": getattr(enhanced_data.earnings, 'surprise_pct', None),
+                "beats_last_4q": getattr(enhanced_data.earnings, 'beats_last_4q', None),
+            },
+            "analyst": {
+                "consensus": getattr(enhanced_data.analyst, 'consensus_rating', None),
+                "num_analysts": getattr(enhanced_data.analyst, 'num_analysts', None),
+                "price_target": getattr(enhanced_data.analyst, 'price_target', None),
+                "upside_pct": getattr(enhanced_data.analyst, 'upside_pct', None),
+            },
+            "dividend": {
+                "yield_pct": getattr(enhanced_data.dividend, 'yield_pct', 0) or 0,
+                "payout_ratio": getattr(enhanced_data.dividend, 'payout_ratio', None),
+                "payout_status": getattr(enhanced_data.dividend, 'payout_status', None),
+                "income_rating": getattr(enhanced_data.dividend, 'income_rating', None),
+            },
+            "macro": {
+                "vix": getattr(enhanced_data.macro, 'vix_level', None),
+                "vix_status": getattr(enhanced_data.macro, 'vix_status', None),
+                "market_regime": getattr(enhanced_data.macro, 'market_regime', None),
+                "spy_trend_10d": getattr(enhanced_data.macro, 'spy_trend_10d', None),
+            },
+            "financials": {
+                "operating_margin": getattr(enhanced_data.financials, 'operating_margin', None),
+                "gross_margin": getattr(enhanced_data.financials, 'gross_margin', None),
+                "debt_to_equity": getattr(enhanced_data.financials, 'debt_to_equity', None),
+                "return_on_equity": getattr(enhanced_data.financials, 'return_on_equity', None),
+                "return_on_assets": getattr(enhanced_data.financials, 'return_on_assets', None),
+                "free_cash_flow": getattr(enhanced_data.financials, 'free_cash_flow', None),
+                "revenue_growth_yoy": getattr(enhanced_data.financials, 'revenue_growth_yoy', None),
+                "financial_health_score": getattr(enhanced_data.financials, 'financial_health_score', None),
+            },
+            "sector": enhanced_data.sector,
+            "industry": enhanced_data.industry,
+        }
 
 
 def format_output(result: ConsensusResult, detailed: bool = False) -> str:
@@ -941,3 +1355,400 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ============================================================
+# NEW DISTILLED INVESTOR AGENTS (女娲蒸馏 v2.3)
+# ============================================================
+
+
+class RayDalioAgent(InvestmentAgent):
+    """Ray Dalio - All Weather + Risk Parity (女娲蒸馏版)"""
+    
+    def __init__(self):
+        super().__init__("Ray Dalio", "All Weather Portfolio + Risk Parity")
+        self.distilled = RayDalioDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze_portfolio_risk(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning="; ".join(result.get("reasoning", [])),
+                key_metrics={
+                    "risk_assessment": result.get("risk_assessment", {}),
+                    "recommendations": result.get("recommendations", [])
+                }
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class BillAckmanAgent(InvestmentAgent):
+    """Bill Ackman - High Conviction + Catalyst (女娲蒸馏版)"""
+    
+    def __init__(self):
+        super().__init__("Bill Ackman", "High Conviction + Catalyst-Driven Activism")
+        self.distilled = BillAckmanDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning="; ".join(result.get("reasoning", [])),
+                key_metrics=result.get("key_metrics", {})
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class CarlIcahnAgent(InvestmentAgent):
+    """Carl Icahn - Activist Investing (女娲蒸馏版)"""
+    
+    def __init__(self):
+        super().__init__("Carl Icahn", "Activist Investing + Corporate Governance")
+        self.distilled = CarlIcahnDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning=f"Activist potential: {result.get('activist_potential', 'unknown')}",
+                key_metrics={"catalysts": result.get("catalysts", [])}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class JimSimonsAgent(InvestmentAgent):
+    """Jim Simons - Quantitative Trading (女娲蒸馏版)"""
+    
+    def __init__(self):
+        super().__init__("Jim Simons", "Quantitative Trading + Statistical Arbitrage")
+        self.distilled = JimSimonsDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze_market_opportunity(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning=f"Quant approach: {result.get('recommended_approach', 'unknown')}",
+                key_metrics={"market_inefficiency": result.get("market_inefficiency_score", 0)}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class StanleyDruckenmillerAgent(InvestmentAgent):
+    """Stanley Druckenmiller - Global Macro (女娲蒸馏版)"""
+    
+    def __init__(self):
+        super().__init__("Stanley Druckenmiller", "Global Macro + Concentrated Bets")
+        self.distilled = StanleyDruckenmillerDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning=f"Macro: {result.get('macro_theme', 'unknown')} | {result.get('risk_reward', 'unknown')}",
+                key_metrics={"position_recommendation": result.get("position_recommendation", "neutral")}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class KenGriffinAgent(InvestmentAgent):
+    """Ken Griffin - Market Neutral + Market Making (女娲蒸馏版)"""
+    
+    def __init__(self):
+        super().__init__("Ken Griffin", "Market Neutral + Tech-Driven Market Making")
+        self.distilled = KenGriffinDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning=f"Strategy: {result.get('strategy_recommendation', 'unknown')}",
+                key_metrics=result.get("key_metrics", {})
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class SteveCohenAgent(InvestmentAgent):
+    """Steve Cohen - Fundamental Stock Picking (女娲蒸馏版)"""
+    
+    def __init__(self):
+        super().__init__("Steve Cohen", "Fundamental Stock Picking + Trading Skill")
+        self.distilled = SteveCohenDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning=f"Thesis clarity: {result.get('thesis_clarity', 'unknown')}",
+                key_metrics=result.get("key_metrics", {})
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class GeorgeSorosAgent(InvestmentAgent):
+    """George Soros - Reflexivity Theory (女娲蒸馏版)"""
+    
+    def __init__(self):
+        super().__init__("George Soros", "Reflexivity + Macro Bets")
+        self.distilled = GeorgeSorosDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning=f"Reflexivity score: {result.get('reflexivity_score', 0)} | Trend: {result.get('trend_assessment', 'unknown')}",
+                key_metrics={"key_insights": result.get("key_insights", [])}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class MohnishPabraiAgent(InvestmentAgent):
+    """Mohnish Pabrai - Deep Value + Margin of Safety (女娲蒸馏版)"""
+    
+    def __init__(self):
+        super().__init__("Mohnish Pabrai", "Deep Value + Margin of Safety + Imitation")
+        self.distilled = MohnishPabraiDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning=f"MOS: {result.get('margin_of_safety', 'unknown')} | {result.get('holding_period_recommendation', 'unknown')}",
+                key_metrics=result.get("key_metrics", {})
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class DavidEinhornAgent(InvestmentAgent):
+    """David Einhorn - Value-Oriented + Long/Short (女娲蒸馏版)"""
+    
+    def __init__(self):
+        super().__init__("David Einhorn", "Value-Oriented + Catalyst-Driven")
+        self.distilled = DavidEinhornDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning=f"Catalyst: {result.get('catalyst_clarity', 'unknown')}",
+                key_metrics=result.get("key_metrics", {})
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class DanielLoebAgent(InvestmentAgent):
+    """Daniel Loeb - Activist Investing (女娲蒸馏版)"""
+    
+    def __init__(self):
+        super().__init__("Daniel Loeb", "Activist Investing + Change Catalyst")
+        self.distilled = DanielLoebDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning=f"Activist potential: {result.get('activist_potential', 'unknown')} | Catalyst: {result.get('change_catalyst', 'unknown')}",
+                key_metrics={}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class JeffYassAgent(InvestmentAgent):
+    """Jeff Yass - Quantitative + Options Mindset (女娲蒸馏版)"""
+    
+    def __init__(self):
+        super().__init__("Jeff Yass", "Quantitative Screening + Tech Focus")
+        self.distilled = JeffYassDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning=f"Quant score: {result.get('quant_score', 0)}",
+                key_metrics={"options_signals": result.get("options_signals", {})}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+
+
+# ============================================================
+# FUTURES TRADING MASTERS (女娲蒸馏 - 新增)
+# ============================================================
+
+
+class RichardDennisAgent(InvestmentAgent):
+    """Richard Dennis - Turtle Trading + Trend Following"""
+    
+    def __init__(self):
+        super().__init__("Richard Dennis", "Turtle Trading + Trend Following")
+        self.distilled = RichardDennisDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning="; ".join(result.get("reasoning", [])),
+                key_metrics={"trend_score": result.get("trend_score", 50), "entry_signals": result.get("entry_signals", [])}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class PaulTudorJonesAgent(InvestmentAgent):
+    """Paul Tudor Jones - Macro + Risk Management"""
+    
+    def __init__(self):
+        super().__init__("Paul Tudor Jones", "Macro Analysis + Risk Management")
+        self.distilled = PaulTudorJonesDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning="; ".join(result.get("reasoning", [])),
+                key_metrics={"macro_signal": result.get("macro_signal", {}), "crash_indicators": result.get("crash_indicators", [])}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class EdSeykotaAgent(InvestmentAgent):
+    """Ed Seykota - Trend Following + Computerized Systems"""
+    
+    def __init__(self):
+        super().__init__("Ed Seykota", "Trend Following + Computerized Systems")
+        self.distilled = EdSeykotaDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning="; ".join(result.get("reasoning", [])),
+                key_metrics={"trend_direction": result.get("trend_direction", "neutral"), "trend_strength": result.get("trend_strength", 50)}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class BruceKovnerAgent(InvestmentAgent):
+    """Bruce Kovner - Macro + Technical + Risk Management"""
+    
+    def __init__(self):
+        super().__init__("Bruce Kovner", "Macro + Technical + Risk Management")
+        self.distilled = BruceKovnerDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning="; ".join(result.get("reasoning", [])),
+                key_metrics={"macro_alignment": result.get("macro_alignment", "neutral"), "entry_quality": result.get("entry_quality", "average")}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class LarryWilliamsAgent(InvestmentAgent):
+    """Larry Williams - Overbought/Oversold + Seasonality"""
+    
+    def __init__(self):
+        super().__init__("Larry Williams", "Overbought/Oversold + Seasonality")
+        self.distilled = LarryWilliamsDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning="; ".join(result.get("reasoning", [])),
+                key_metrics={"williams_r": result.get("williams_r", 0), "overbought_oversold": result.get("overbought_oversold", "neutral")}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class JesseLivermoreAgent(InvestmentAgent):
+    """Jesse Livermore - Market Timing + Key Levels"""
+    
+    def __init__(self):
+        super().__init__("Jesse Livermore", "Market Timing + Key Levels")
+        self.distilled = JesseLivermoreDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning="; ".join(result.get("reasoning", [])),
+                key_metrics={"path_of_least_resistance": result.get("path_of_least_resistance", "neutral"), "market_position": result.get("market_position", "观望")}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+
+class JimRogersAgent(InvestmentAgent):
+    """Jim Rogers - Global Macro + Commodities + Emerging Markets"""
+    
+    def __init__(self):
+        super().__init__("Jim Rogers", "Global Macro + Commodities + Emerging Markets")
+        self.distilled = JimRogersDistilled() if ALL_DISTILLED else None
+    
+    def analyze(self, data: Dict) -> AgentSignal:
+        if self.distilled:
+            result = self.distilled.analyze(data)
+            return AgentSignal(
+                agent_name=self.name,
+                signal=result["signal"],
+                confidence=result["confidence"],
+                reasoning="; ".join(result.get("reasoning", [])),
+                key_metrics={"macro_regime": result.get("macro_regime", "unknown"), "commodity_signal": result.get("commodity_signal", "neutral")}
+            )
+        return AgentSignal(self.name, "neutral", 50, "Framework not available")
+
+

@@ -151,7 +151,7 @@ class SmartDataFetcher:
         获取股票数据（智能路由）
         
         Args:
-            ticker: 股票代码（如 AAPL, 0700.HK）
+            ticker: 股票代码（如 AAPL, MSFT）
             use_cache: 是否使用缓存
             
         Returns:
@@ -219,12 +219,7 @@ class SmartDataFetcher:
         stock = yf.Ticker(ticker)
         info = stock.info
         
-        # 处理港股/A股代码显示
         display_ticker = ticker
-        if '.HK' in ticker:
-            display_ticker = ticker.replace('.HK', '')
-        elif '.SS' in ticker or '.SZ' in ticker:
-            display_ticker = ticker.replace('.SS', '').replace('.SZ', '')
         
         return StockData(
             ticker=display_ticker,
@@ -405,7 +400,7 @@ if __name__ == "__main__":
     fetcher = SmartDataFetcher(config)
     
     # 测试获取
-    test_tickers = ['AAPL', 'MSFT', '0700.HK']
+    test_tickers = ['AAPL', 'MSFT', 'GOOGL']
     
     for ticker in test_tickers:
         print(f"\n📈 Fetching {ticker}...")

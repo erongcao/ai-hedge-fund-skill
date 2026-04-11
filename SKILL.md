@@ -66,7 +66,6 @@ This skill creates a team of AI agents, each embodying the investment philosophy
 ai-hedge-fund analyze AAPL
 ai-hedge-fund portfolio AAPL,MSFT,GOOGL --risk moderate
 ai-hedge-fund backtest AAPL,MSFT --start 2023-01-01 --end 2024-01-01
-ai-hedge-fund global analyze --ticker 0700.HK
 
 # Or use individual commands
 ./ai-hedge-fund AAPL                    # Basic analysis
@@ -503,43 +502,6 @@ Environmental, Social, Governance screening:
 ai-hedge-fund esg AAPL,MSFT,XOM,TSLA --portfolio --minimum-score 6.0
 ```
 
-### 6. Global Markets (`global_markets.py`)
-International stock market support:
-- Market detection from ticker format
-- 15+ global exchanges
-- Currency conversion
-- Market hours and timezones
-- Index tracking
-
-```bash
-# List supported markets
-ai-hedge-fund global list-markets
-
-# Analyze Hong Kong stock
-ai-hedge-fund global analyze --ticker 0700.HK
-
-# Analyze China A-share
-ai-hedge-fund global analyze --ticker 600519.SS
-
-# Convert currency
-ai-hedge-fund global convert --amount 10000 --from-currency CNY
-```
-
-#### Supported Markets
-| Market | Code | Example Ticker |
-|--------|------|----------------|
-| US Stocks | US | AAPL, MSFT |
-| Hong Kong | HK | 0700.HK, 9988.HK |
-| Shanghai | SS | 600519.SS |
-| Shenzhen | SZ | 000858.SZ |
-| Tokyo | T | 7203.T |
-| London | L | SHEL.L |
-| Frankfurt | DE | SAP.DE |
-| India NSE | NS | RELIANCE.NS |
-| Australia | AU | CBA.AX |
-| Korea | KS | 005930.KS |
-| Singapore | SI | D05.SI |
-
 ## File Structure
 
 ```
@@ -554,7 +516,6 @@ ai-hedge-fund/
 ├── rebalance_monitor.py         # Rebalancing alerts
 ├── tax_optimizer.py             # Tax-loss harvesting
 ├── esg_screener.py              # ESG screening
-├── global_markets.py            # Global market support
 ├── ai-hedge-fund-cli            # Unified CLI
 ├── ai-hedge-fund                # Basic CLI wrapper
 ├── ai-hedge-fund-advanced       # Advanced CLI wrapper

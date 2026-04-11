@@ -74,29 +74,6 @@ This OpenClaw skill creates a team of AI agents, each embodying the investment p
   - Controversy detection
   - Portfolio ESG analysis
 
-- **🌍 Global Markets**
-  - 15+ international exchanges
-  - US, Hong Kong, China A-shares, Japan, Europe, India, etc.
-  - Currency conversion
-
-### v3.0 - Master Investor Roundtable (NEW)
-
-```bash
-# Run master investor roundtable analysis
-python3 ai_hedge_fund_v3.py AAPL
-
-# Output JSON
-python3 ai_hedge_fund_v3.py AAPL --json
-```
-
-Features:
-- **Multi-master analysis**: Buffett, Graham, Munger perspectives
-- **Consensus detection**: Find agreement points
-- **Divergence analysis**: Identify where masters disagree
-- **Synthesis**: Combined recommendation with position sizing
-
----
-
 ## 🚀 Quick Start
 
 ### Installation
@@ -155,45 +132,6 @@ echo "ALPHA_VANTAGE_API_KEY=your_key_here" > .env
 ./ai-hedge-fund-cli backtest AAPL,MSFT --start 2023-01-01 --end 2024-01-01 --rebalance monthly
 ```
 
-### Global Markets
-
-```bash
-# List supported markets
-./ai-hedge-fund-cli global list-markets
-
-# Analyze Hong Kong stock (Tencent)
-./ai-hedge-fund-cli global analyze --ticker 0700.HK
-
-# Analyze China A-share (Kweichow Moutai)
-./ai-hedge-fund-cli global analyze --ticker 600519.SS
-
-# Analyze Japanese stock (Toyota)
-./ai-hedge-fund-cli global analyze --ticker 7203.T
-
-# Currency conversion
-./ai-hedge-fund-cli global convert --amount 10000 --from-currency CNY
-```
-
----
-
-## 📚 Supported Markets
-
-| Market | Code | Example Ticker | Currency |
-|--------|------|----------------|----------|
-| United States | US | AAPL, MSFT, TSLA | USD |
-| Hong Kong | HK | 0700.HK, 9988.HK | HKD |
-| Shanghai | SS | 600519.SS, 000001.SS | CNY |
-| Shenzhen | SZ | 000858.SZ, 002594.SZ | CNY |
-| Tokyo | T | 7203.T, 9984.T | JPY |
-| London | L | SHEL.L, ULVR.L | GBP |
-| Frankfurt | DE | SAP.DE, VOW.DE | EUR |
-| Paris | PA | TTE.PA, OR.PA | EUR |
-| Toronto | TO | RY.TO, ENB.TO | CAD |
-| Australia | AU | CBA.AX, BHP.AX | AUD |
-| India NSE | NS | RELIANCE.NS, TCS.NS | INR |
-| Korea | KS | 005930.KS, 000660.KS | KRW |
-| Singapore | SI | D05.SI, O39.SI | SGD |
-
 ---
 
 ## 🏗️ Architecture
@@ -209,8 +147,8 @@ User Request
     ┌─────────┼─────────┬─────────┬─────────┐
     │         │         │         │         │
     ▼         ▼         ▼         ▼         ▼
-┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐
-│Analyze│ │Portfolio│ │Backtest│ │Tax    │ │Global │
+┌───────┐ ┌───────┐ ┌───────┐ ┌───────┐
+│Analyze│ │Portfolio│ │Backtest│ │Tax    │
 │       │ │        │ │       │ │       │ │       │
 └───┬───┘ └────┬────┘ └───┬───┘ └───┬───┘ └───┬───┘
     │          │          │         │         │
@@ -420,7 +358,6 @@ AI Hedge Fund Skill 是一个基于 OpenClaw 的投资分析工具，模拟巴�
 - **再平衡监控** - 自动检测组合偏离并提醒
 - **税务优化** - 税损收割和年末策略
 - **ESG筛选** - 环境社会治理评分
-- **全球市场** - 支持港股、A股、美股等15+交易所
 
 ### 快速开始
 
@@ -437,9 +374,6 @@ pip3 install yfinance pandas numpy
 
 # 构建投资组合
 ./ai-hedge-fund-cli portfolio AAPL,MSFT,GOOGL --risk moderate
-
-# 分析港股
-./ai-hedge-fund-cli global analyze --ticker 0700.HK
 ```
 
 ---
