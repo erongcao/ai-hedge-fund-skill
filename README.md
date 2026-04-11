@@ -79,6 +79,22 @@ This OpenClaw skill creates a team of AI agents, each embodying the investment p
   - US, Hong Kong, China A-shares, Japan, Europe, India, etc.
   - Currency conversion
 
+### v3.0 - Master Investor Roundtable (NEW)
+
+```bash
+# Run master investor roundtable analysis
+python3 ai_hedge_fund_v3.py AAPL
+
+# Output JSON
+python3 ai_hedge_fund_v3.py AAPL --json
+```
+
+Features:
+- **Multi-master analysis**: Buffett, Graham, Munger perspectives
+- **Consensus detection**: Find agreement points
+- **Divergence analysis**: Identify where masters disagree
+- **Synthesis**: Combined recommendation with position sizing
+
 ---
 
 ## 🚀 Quick Start
