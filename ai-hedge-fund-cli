@@ -77,6 +77,14 @@ COMMANDS:
     Examples:
         ai-hedge-fund advanced AAPL --detailed
 
+9. ROUNDTABLE - Master Investor Roundtable
+    ai-hedge-fund roundtable <ticker> [--json] [--masters <list>]
+    
+    Examples:
+        ai-hedge-fund roundtable AAPL
+        ai-hedge-fund roundtable TSLA --masters buffett,munger
+        ai-hedge-fund roundtable NVDA --json
+
 OPTIONS:
     -h, --help              Show this help message
     --json, -j              Output results as JSON
@@ -140,6 +148,11 @@ case "${1:-}" in
     advanced|adv)
         shift
         python3 "${SCRIPT_DIR}/ai_hedge_fund_advanced.py" "$@"
+        ;;
+    
+    roundtable|rt|masters)
+        shift
+        python3 "${SCRIPT_DIR}/ai_hedge_fund_v3.py" "$@"
         ;;
     
     help|--help|-h)
