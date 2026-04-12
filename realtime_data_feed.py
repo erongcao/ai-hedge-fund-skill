@@ -70,13 +70,31 @@ class OKXWebSocketFeed:
         self.tick_cache: Dict[str, TickData] = {}
         self.kline_cache: Dict[str, List[KlineData]] = {}
         
-        # Redis缓存（可选）
+        # Redis缓存（可选）- [P1 FIX] 真正测试连接
         self.redis_client = None
         if use_redis:
             try:
-                self.redis_client = redis.Redis(host='localhost', port=6379, db=0)
-            except:
-                print("⚠️ Redis连接失败，使用内存缓存")
+                # 使用环境变量配置，支持自定义
+                redis_host = os.getenv('REDIS_HOST', 'localhost')
+                redis_port = int(os.getenv('REDIS_PORT', 6379))
+                redis_db = int(os.getenv('REDIS_DB', 0))
+                
+                self.redis_client = redis.Redis(
+                    host=redis_host,
+                    port=redis_port,
+                    db=redis_db,
+                    socket_connect_timeout=5,  # 连接超时5秒
+                    socket_timeout=5           # 操作超时5秒
+                )
+                # 真正测试连接（构造时不会实际连接）
+                self.redis_client.ping()
+                print(f"✅ Redis连接成功: {redis_host}:{redis_port}/{redis_db}")
+            except (redis.ConnectionError, redis.TimeoutError) as e:
+                print(f"⚠️ Redis连接失败: {e}，使用内存缓存")
+                self.redis_client = None
+            except Exception as e:
+                print(f"⚠️ Redis初始化错误: {e}，使用内存缓存")
+                self.redis_client = None
     
     def subscribe(self, symbols: List[str]):
         """订阅交易对"""
@@ -116,7 +134,7 @@ class OKXWebSocketFeed:
             
             # 处理K线数据
             elif "arg" in data and "candle" in data["arg"].get("channel", ""):
-                self._handle_kline(data["data"][0], data["arg"]["channel"])
+                self._handle_kline(data["data"][0], data["arg"]["channel"], data["arg"])
                 
         except Exception as e:
             if self.on_error:
@@ -133,7 +151,7 @@ class OKXWebSocketFeed:
             high_24h=float(data["high24h"]),
             low_24h=float(data["low24h"]),
             timestamp=datetime.now(),
-            change_24h=float(data.get("open24h", 0)) - float(data["last"])
+            change_24h=float(data["last"]) - float(data.get("open24h", 0))
         )
         
         # 更新缓存
@@ -154,13 +172,16 @@ class OKXWebSocketFeed:
         if self.on_tick:
             self.on_tick(tick)
     
-    def _handle_kline(self, data: list, channel: str):
+    def _handle_kline(self, data: list, channel: str, arg: dict):
         """处理K线数据"""
         # 解析timeframe
         timeframe = channel.replace("candle", "")
         
+        # 从arg获取symbol，而不是从data[0]
+        symbol = arg.get("instId", "unknown")
+        
         kline = KlineData(
-            symbol=data[0],  # instId
+            symbol=symbol,
             timestamp=datetime.fromtimestamp(int(data[0])/1000),
             open=float(data[1]),
             high=float(data[2]),

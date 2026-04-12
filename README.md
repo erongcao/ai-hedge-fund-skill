@@ -20,9 +20,9 @@ AI Hedge Fund Skill 是一个基于**投资大师思维框架**的智能投资�
 | **能力圈检测** | ❌ 无 | ✅ Circle of Competence | ✅ |
 | **实时数据** | ❌ 手动获取 | ✅ WebSocket实时接入 | ✅ |
 | **交互CLI** | ❌ 无 | ✅ 一键分析命令 | ✅ |
-| **回测引擎** | ❌ 无 | ✅ 历史验证系统 | ✅ |
-| **自适应权重** | ❌ 固定权重 | ✅ 市场环境动态调整 | ✅ |
-| **自动更新** | ❌ 静态 | ✅ 大师动态监控 | ✅ |
+| **回测引擎** | ❌ 无 | 🚧 历史验证系统 | 🚧 开发中 |
+| **自适应权重** | ❌ 固定权重 | 🚧 市场环境动态调整 | 🚧 开发中 |
+| **自动更新** | ❌ 静态 | 🚧 大师动态监控 | 🚧 开发中 |
 | **投资委员会** | ❌ 无 | ✅ 元技能组合 | ✅ |
 
 ### 22位大师完整列表
@@ -42,7 +42,7 @@ AI Hedge Fund Skill 是一个基于**投资大师思维框架**的智能投资�
 
 ```bash
 # 克隆仓库
-git clone https://github.com/yirongcao/ai-hedge-fund-skill.git
+git clone https://github.com/erongcao/ai-hedge-fund-skill.git
 cd ai-hedge-fund-skill
 
 # 安装依赖

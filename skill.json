@@ -1,0 +1,30 @@
+{
+  "name": "ai-hedge-fund-skill",
+  "version": "2.0.0",
+  "description": "AI Hedge Fund Skill - 22位投资大师思维框架蒸馏，支持投资委员会分析和实时数据",
+  "author": "erongcao",
+  "license": "MIT",
+  "min_openclaw_version": "2024.1.0",
+  "entry": {
+    "python": "ai_hedge_fund.py"
+  },
+  "commands": [
+    {
+      "name": "hedge",
+      "description": "AI Hedge Fund 投资分析",
+      "usage": "hedge fund <symbol> [--masters <master1,master2,...>] [--timeframe <1D|4H|1H>]"
+    }
+  ],
+  "dependencies": [
+    "pandas>=2.0.0",
+    "numpy>=1.24.0",
+    "requests>=2.28.0",
+    "websocket-client>=1.4.0"
+  ],
+  "optional_dependencies": [
+    "redis>=4.3.0",
+    "matplotlib>=3.5.0"
+  ],
+  "tags": ["finance", "investment", "hedge-fund", "ai-agents"],
+  "homepage": "https://github.com/erongcao/ai-hedge-fund-skill"
+}

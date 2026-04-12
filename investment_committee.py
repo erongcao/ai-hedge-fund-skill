@@ -34,9 +34,9 @@ def load_all_masters_v2() -> Dict[str, object]:
                 sys.modules[name] = module
                 try:
                     spec.loader.exec_module(module)
-                    # 查找Distilled类
+                    # 查找Distilled类（修复：移除硬编码排除）
                     for attr in dir(module):
-                        if "Distilled" in attr and attr != "WarrenBuffettDistilled":
+                        if attr.endswith("Distilled") and not attr.startswith("_"):
                             masters[name] = getattr(module, attr)
                             break
                 except Exception as e:
@@ -123,24 +123,56 @@ class InvestmentCommittee:
         }
     
     def analyze(self, ticker: str, data: Dict = None, 
-                masters: Optional[List[str]] = None) -> ConsensusReport:
+                masters: Optional[List[str]] = None,
+                auto_fetch_data: bool = False) -> ConsensusReport:
         """
         分析股票，聚合多个大师的观点
         
         Args:
             ticker: 股票代码
-            data: 股票数据（可选）
+            data: 股票数据（可选，但强烈建议提供真实数据）
             masters: 指定大师列表（默认使用全部）
+            auto_fetch_data: 当data为None时是否自动获取数据（默认False，会抛出异常）
         
         Returns:
             ConsensusReport: 共识报告
+        
+        Raises:
+            ValueError: 当data为None且auto_fetch_data为False时
         """
         if masters is None:
             masters = list(self.master_mapping.keys())
         
-        # 测试数据
+        # [P1 FIX] 当data为None时的安全处理
         if data is None:
-            data = self._get_mock_data(ticker)
+            if auto_fetch_data:
+                # 尝试从实时数据源获取
+                try:
+                    from realtime_data_feed import create_data_feed
+                    feed = create_data_feed()
+                    feed.start([ticker])
+                    import time
+                    time.sleep(2)  # 等待数据
+                    price = feed.get_price(ticker)
+                    feed.stop()
+                    
+                    if price:
+                        data = {
+                            "ticker": ticker,
+                            "price": price,
+                            "sector": "Unknown",
+                            "source": "realtime_feed"
+                        }
+                    else:
+                        raise ValueError(f"无法获取 {ticker} 的实时数据")
+                except Exception as e:
+                    raise ValueError(f"自动获取数据失败: {e}。请手动提供数据或设置auto_fetch_data=False使用模拟数据（不推荐用于生产）")
+            else:
+                # 生产环境下不应该使用模拟数据
+                raise ValueError(
+                    f"未提供股票数据。请提供真实数据，或设置 auto_fetch_data=True 尝试自动获取。"
+                    f"注意：在生产环境中使用模拟数据会导致错误的投资建议。"
+                )
         
         opinions = []
         expert_opinions = []
